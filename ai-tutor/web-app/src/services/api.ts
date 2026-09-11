@@ -41,7 +41,7 @@ export const reviewApi = {
   submitNormal: (data: NormalReviewSubmit) =>
     api.post<NormalReviewResponse>('/review/normal', data),
 
-  submitVerificationFailed: (data: { chunk_id: string; schedule_id: string; response_time_ms: number }) =>
+  submitVerificationFailed: (data: { chunk_id: string | null; schedule_id: string; response_time_ms: number }) =>
     api.post('/review/verification-failed', data),
 
   markMastered: (scheduleId: string) =>

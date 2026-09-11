@@ -1,80 +1,75 @@
-export interface User {
-  id: string
-  email: string
-  username: string
-}
+/**
+ * 前端类型门面（facade）
+ *
+ * 契约来源：shared/models 的 Pydantic schema。
+ * 再生成链路：
+ *   ai-tutor/.venv/bin/python ai-tutor/scripts/export_openapi.py > /tmp/schemas.json
+ *   cd web-app && npm run gen:types   # openapi-typescript /tmp/schemas.json -o src/types/generated.ts
+ *
+ * - 与后端 1:1 的类型直接透传 generated.ts（字段增删由后端驱动）
+ * - 后端仅声明 `dict` 的字段（options/mastery_change/queue/stats...）由前端细化结构
+ * - ReviewBatch/VerifyItem/BatchStats/DashboardData 等为纯前端组合类型，无后端对应
+ */
+import type { components } from './generated'
 
-export interface Document {
-  id: string
-  title: string
-  source_url?: string
-  source_type: string
-  status: string
-  tags: string[]
-  chunk_count: number
-  error_message?: string
-  created_at: string
-  processed_at?: string
-}
+type Schemas = components['schemas']
 
-export interface Thread {
-  id: string
-  agent_type: string
-  title?: string
-  status: string
-  state: Record<string, unknown>
-  created_at: string
-}
+// ===== 1:1 透传后端 schema =====
+export type User = Schemas['UserResponse']
+export type Document = Schemas['DocumentResponse']
+export type Thread = Schemas['ThreadResponse']
+export type WrongQuestion = Schemas['WrongQuestionResponse']
+export type ReviewItem = Schemas['ReviewItem']
+export type ReviewStats = Schemas['ReviewListResponse']
+export type ReviewResult = Schemas['ReviewResult']
+export type NormalReviewAnswerType = Schemas['NormalReviewAnswer']
+export type NormalReviewSubmit = Schemas['NormalReviewSubmit']
+export type FeynmanVerifyResponse = Schemas['FeynmanVerifyResponse']
+export type BatchCompletePayload = Schemas['BatchCompleteSubmit']
 
-export interface Quiz {
-  id: string
-  scope: string
-  topic?: string
+// ===== 细化后端 dict 字段（后端 dict → 前端结构化） =====
+export type Quiz = Omit<Schemas['QuizResponse'], 'questions' | 'topic'> & {
   questions: QuizQuestion[]
-  total_questions: number
-  status: string
-  created_at: string
+  topic?: string
 }
 
-export interface QuizQuestion {
-  id: string
+export type QuizQuestion = Omit<Schemas['QuizQuestion'], 'type' | 'options' | 'topic'> & {
   type: 'choice' | 'short_answer' | 'concept_analysis'
-  question: string
   options?: Record<string, string>
   topic?: string
 }
 
-export interface QuizResult {
-  quiz_id: string
+export interface QuizResultItem {
+  question_id: string
+  type?: string
+  question?: string
+  options?: Record<string, string>
+  correct: boolean
   score: number
-  total_questions: number
-  correct_count: number
-  results: {
-    question_id: string
-    type?: string
-    question?: string
-    options?: Record<string, string>
-    correct: boolean
-    score: number
-    max_score: number
-    feedback: string
-    user_answer: string
-    correct_answer: string
-    explanation?: string
-  }[]
-  wrong_questions: {
-    id: string
-    question: Record<string, unknown>
-    user_answer: string
-    correct_answer: string
-  }[]
-  suggested_reviews?: SuggestedReview[]
-  mastery_change: number
-  time_spent_seconds: number
+  max_score: number
+  feedback: string
+  user_answer: string
+  correct_answer: string
+  explanation?: string
 }
 
-export interface SuggestedReview {
-  wrong_id: string
+export interface QuizResultWrongItem {
+  id: string
+  question: Record<string, unknown>
+  user_answer: string
+  correct_answer: string
+}
+
+export type QuizResult = Omit<
+  Schemas['QuizResult'],
+  'results' | 'wrong_questions' | 'suggested_reviews'
+> & {
+  results: QuizResultItem[]
+  wrong_questions: QuizResultWrongItem[]
+  suggested_reviews?: SuggestedReview[]
+}
+
+export type SuggestedReview = Omit<Schemas['SuggestedReview'], 'question'> & {
   question: {
     id?: string
     question?: string
@@ -85,14 +80,9 @@ export interface SuggestedReview {
     topic?: string
     points?: number
   }
-  user_answer?: string
-  correct_answer?: string
-  explanation?: string
 }
 
-export interface AddToReviewResult {
-  added: number
-  skipped: number
+export type AddToReviewResult = Omit<Schemas['AddToReviewResponse'], 'items'> & {
   items: {
     wrong_id: string
     schedule_id: string
@@ -101,51 +91,7 @@ export interface AddToReviewResult {
   }[]
 }
 
-export interface WrongQuestion {
-  id: string
-  question: Record<string, unknown>
-  user_answer?: string
-  correct_answer?: string
-  explanation?: string
-  review_count: number
-  mastered: boolean
-  in_review?: boolean
-  created_at: string
-}
-
-export interface ReviewItem {
-  schedule_id: string
-  chunk_id: string
-  topic: string
-  answer?: string
-  mastery_score: number
-  next_review: string
-  interval_days: number
-  review_count: number
-  status: string
-  source?: string
-  reason?: string
-  is_mastered?: boolean
-  correct_streak?: number
-}
-
-export type NormalReviewAnswerType = 'mastered' | 'vague' | 'forgotten'
-
-export interface NormalReviewSubmit {
-  schedule_id: string
-  answer: 'mastered' | 'vague' | 'forgotten'
-  response_time_ms: number
-}
-
-export interface NormalReviewResponse {
-  schedule_id: string
-  chunk_id: string
-  next_review_time: string
-  ease_factor: number
-  correct_streak: number
-  is_mastered: boolean
-  need_session_retry: boolean
-  retry_reason: string | null
+export type NormalReviewResponse = Omit<Schemas['NormalReviewResponse'], 'mastery_change'> & {
   mastery_change: {
     old: number
     new: number
@@ -153,6 +99,7 @@ export interface NormalReviewResponse {
   } | null
 }
 
+// ===== 纯前端组合类型（无后端 Pydantic 对应） =====
 export interface ReviewBatchItem {
   schedule_id: string
   chunk_id: string
@@ -176,20 +123,30 @@ export interface ReviewBatch {
   }
 }
 
-export interface ReviewStats {
-  pending_count: number
-  overdue_count: number
-  items: ReviewItem[]
+export interface VerifyItem {
+  item: ReviewItem
+  reason: 'vague' | 'forgotten'
+  feynman?: boolean
 }
 
-export interface ReviewResult {
-  schedule_id: string
-  old_interval: number
-  new_interval: number
-  ease_factor: number
-  mastery_score: number
-  next_review: string
-  status: string
+export interface BatchStats {
+  batch_id: string
+  total: number
+  mastered_count: number
+  retry_count: number
+  total_response_ms: number
+  started_at: number
+  retry_map: Record<string, number>
+}
+
+// 后端 /review/session 的 stats/queue 字段为原样 dict，前端细化结构
+export type SessionSnapshot = Omit<
+  Schemas['SessionSnapshot'],
+  'retry_queue' | 'verify_queue' | 'stats'
+> & {
+  retry_queue: VerifyItem[]
+  verify_queue: VerifyItem[]
+  stats: BatchStats
 }
 
 export interface DashboardData {
@@ -221,49 +178,4 @@ export interface MasteryRecord {
   feynman_score: number
   review_count: number
   updated_at: string
-}
-
-export interface FeynmanVerifyResponse {
-  schedule_id: string
-  score: number
-  passed: boolean
-  strengths: string[]
-  weaknesses: string[]
-  suggestions: string[]
-  correct_answer: string
-}
-
-export interface SessionSnapshot {
-  batch_id: string
-  batch_index: number
-  main_queue: ReviewItem[]
-  retry_queue: VerifyItem[]
-  verify_queue: VerifyItem[]
-  current_card: ReviewItem | null
-  stats: BatchStats
-}
-
-export interface VerifyItem {
-  item: ReviewItem
-  reason: 'vague' | 'forgotten'
-  feynman?: boolean
-}
-
-export interface BatchStats {
-  batch_id: string
-  total: number
-  mastered_count: number
-  retry_count: number
-  total_response_ms: number
-  started_at: number
-  retry_map: Record<string, number>
-}
-
-export interface BatchCompletePayload {
-  batch_id: string
-  total_count: number
-  mastered_count: number
-  retry_count: number
-  duration_sec: number
-  avg_response_ms: number
 }
