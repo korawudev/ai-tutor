@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
 from shared.models import ReviewSchedule, Run, Thread
-from shared.utils.logging import get_logger
 from shared.utils.mastery import record_daily_stats, upsert_mastery
+from shared.utils.observability import get_langfuse, get_logger
 from shared.utils.schedule import compute_next_review_window
 
 from ..services import llm_client
@@ -84,10 +84,23 @@ async def evaluate_conversation(
             conversation.append(f"导师: {run.output['response']}")
 
     try:
-        evaluation = llm_client.chat_json(
-            EVALUATE_PROMPT,
-            "请评估以下费曼学习对话：\n\n" + "\n".join(conversation),
+        lf = get_langfuse()
+        trace = lf and lf.trace(
+            name="feynman-evaluate",
+            user_id=str(user_id),
+            metadata={"thread_id": str(thread_id)},
         )
+
+        user_msg = "请评估以下费曼学习对话：\n\n" + "\n".join(conversation)
+        evaluation = llm_client.chat_json(EVALUATE_PROMPT, user_msg)
+
+        if trace:
+            trace.generation(
+                name="llm-eval",
+                model="siliconflow",
+                input={"system": EVALUATE_PROMPT, "user": user_msg},
+                output=evaluation,
+            )
 
         evaluation.setdefault("score", 60)
         evaluation.setdefault("understanding", 60)
@@ -101,6 +114,7 @@ async def evaluate_conversation(
         return evaluation
 
     except Exception as e:
+        log.error("feynman_evaluate_failed", thread_id=str(thread_id), error=str(e))
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)[:200]}") from e
 
 

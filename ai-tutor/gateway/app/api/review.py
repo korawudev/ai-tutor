@@ -31,8 +31,8 @@ from shared.models import (
     VerificationFailedSubmit,
     VerificationLog,
 )
-from shared.utils.logging import get_logger
 from shared.utils.mastery import record_daily_stats, upsert_mastery
+from shared.utils.observability import get_langfuse, get_logger
 
 from ..services import llm_client
 from .auth import get_user_id_dependency
@@ -146,6 +146,18 @@ async def submit_normal_review(
     """提交正式复习结果（三分支：mastered/vague/forgotten；<500ms 视为无效作答）"""
     if data.response_time_ms < MIN_RESPONSE_TIME_MS:
         raise HTTPException(status_code=400, detail="请仔细思考后再作答")
+
+    lf = get_langfuse()
+    trace = lf and lf.trace(
+        name="submit-normal-review",
+        user_id=str(user_id),
+        metadata={
+            "schedule_id": str(data.schedule_id),
+            "answer": data.answer.value,
+            "response_time_ms": data.response_time_ms,
+        },
+    )
+
     result = await svc_submit_normal_review(
         db,
         data.schedule_id,
@@ -157,6 +169,17 @@ async def submit_normal_review(
         raise HTTPException(status_code=404, detail="Review schedule not found")
 
     schedule = result["schedule"]
+
+    if trace:
+        trace.span(
+            name="review-computed",
+            output={
+                "is_mastered": result["is_mastered"],
+                "need_session_retry": result["need_session_retry"],
+                "mastery_change": result["mastery_change"],
+                "correct_streak": result["correct_streak"],
+            },
+        )
 
     # 后台任务：更新 mastery 与每日统计
     if schedule.topic:
