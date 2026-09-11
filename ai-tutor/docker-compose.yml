@@ -1,0 +1,210 @@
+services:
+  # ========== 基础设施 ==========
+  
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-tutor-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ai_tutor}
+      POSTGRES_USER: ${POSTGRES_USER:-ai_tutor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_tutor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-tutor-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== Agent 服务 ==========
+  
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: ai-tutor-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ai_tutor}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_tutor}
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key}
+      - KNOWLEDGE_AGENT_URL=http://knowledge-agent:8001
+      - RAG_AGENT_URL=http://rag-agent:8002
+      - FEYNMAN_AGENT_URL=http://feynman-agent:8003
+      - QUIZ_AGENT_URL=http://quiz-agent:8004
+      - REVIEW_AGENT_URL=http://review-agent:8005
+      - PROGRESS_AGENT_URL=http://progress-agent:8006
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+    restart: unless-stopped
+
+  knowledge-agent:
+    build:
+      context: .
+      dockerfile: knowledge-agent/Dockerfile
+    container_name: ai-tutor-knowledge
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ai_tutor}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_tutor}
+      - REDIS_URL=redis://redis:6379/0
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY}
+      - JINA_API_KEY=${JINA_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+    restart: unless-stopped
+
+  rag-agent:
+    build:
+      context: .
+      dockerfile: rag-agent/Dockerfile
+    container_name: ai-tutor-rag
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ai_tutor}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_tutor}
+      - REDIS_URL=redis://redis:6379/0
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  feynman-agent:
+    build:
+      context: .
+      dockerfile: feynman-agent/Dockerfile
+    container_name: ai-tutor-feynman
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ai_tutor}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_tutor}
+      - REDIS_URL=redis://redis:6379/0
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  quiz-agent:
+    build:
+      context: .
+      dockerfile: quiz-agent/Dockerfile
+    container_name: ai-tutor-quiz
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ai_tutor}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_tutor}
+      - REDIS_URL=redis://redis:6379/0
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  review-agent:
+    build:
+      context: .
+      dockerfile: review-agent/Dockerfile
+    container_name: ai-tutor-review
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ai_tutor}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_tutor}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  progress-agent:
+    build:
+      context: .
+      dockerfile: progress-agent/Dockerfile
+    container_name: ai-tutor-progress
+    ports:
+      - "8006:8006"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ai_tutor}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_tutor}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ========== 前端 ==========
+  
+  web-app:
+    build:
+      context: ./web-app
+      dockerfile: Dockerfile
+    container_name: ai-tutor-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # ========== 可观测性 ==========
+  
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: ai-tutor-langfuse
+    ports:
+      - "3001:3000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ai_tutor}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_tutor}_langfuse
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-secret}
+      - NEXTAUTH_URL=http://localhost:3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - observability
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: ai-tutor-network

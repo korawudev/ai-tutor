@@ -1,0 +1,95 @@
+# ==============================================
+# ai-tutor .gitignore
+# ==============================================
+
+# ----- AI/LLM Tool Artifacts -----
+.aider*
+opencode.json
+.omo/
+.playwright-mcp/
+
+# ----- Python -----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# ----- Node.js -----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Next.js / React build
+.next/
+out/
+
+# ----- Environment & Secrets -----
+.env
+.env.*
+!.env.example
+
+# ----- Docker -----
+docker-compose.override.yml
+
+# ----- Testing & Coverage -----
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+.coverage.*
+coverage.xml
+*.cover
+
+# ----- IDE & OS -----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ----- Storage & Uploads -----
+storage/uploads/
+storage/*.db
+
+# ----- Database -----
+*.sqlite3
+*.db
+
+# ----- Documentation Build -----
+docs/_build/
+site/
+
+# ----- Logs -----
+*.log
+logs/
+
+# ----- E2E Test Artifacts -----
+test-result-*.png
+test-results/
+e2e-test-full-flow.png
+
+# ----- Build Artifacts -----
+*.tar.gz
+*.zip
+
+# ----- Misc -----
+.cache/
+tmp/
+.temp/

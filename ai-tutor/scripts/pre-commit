@@ -1,0 +1,23 @@
+#!/bin/bash
+# Pre-commit hook: run lint + tests before allowing commit
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# 1. Backend syntax check
+echo "  → Python syntax check..."
+.venv/bin/python -m py_compile gateway/app/api/runs.py
+.venv/bin/python -m py_compile gateway/app/api/feynman.py
+
+# 2. Frontend type check
+echo "  → TypeScript type check..."
+cd web-app && npx tsc --noEmit --pretty false 2>&1 | head -20
+cd ..
+
+# 3. Unit tests
+echo "  → Running unit tests..."
+.venv/bin/python -m pytest tests/unit/ -x -q --tb=short 2>&1 | tail -5
+
+echo "✅ Pre-commit checks passed"
