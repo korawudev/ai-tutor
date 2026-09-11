@@ -1,16 +1,15 @@
-from typing import List, Optional
-from uuid import UUID
-from pathlib import Path
-import hashlib
 import uuid as uuidlib
+from pathlib import Path
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Header, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.models import Document, DocumentResponse, DocumentImport, DocumentCreate, ImportResult
 from shared.database import get_db
+from shared.models import Document, DocumentCreate, DocumentImport, DocumentResponse, ImportResult
 from shared.utils import decode_access_token
+
 from ..services import batch_import, check_duplicate, process_document, retry_document
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -33,7 +32,7 @@ async def upload_document(
     file: UploadFile = File(...),
     tags: str = Form(""),
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     raw = await file.read()
     if not raw:
@@ -43,13 +42,15 @@ async def upload_document(
     suffix = Path(filename).suffix.lower()
     if suffix == ".pdf":
         from io import BytesIO
+
         from pypdf import PdfReader
+
         try:
             reader = PdfReader(BytesIO(raw))
             parts = [page.extract_text() or "" for page in reader.pages]
             content = "\n".join(parts).strip()
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"PDF parse failed: {e}")
+            raise HTTPException(status_code=400, detail=f"PDF parse failed: {e}") from e
     elif suffix in (".txt", ".md", ".markdown"):
         try:
             content = raw.decode("utf-8").strip()
@@ -72,11 +73,13 @@ async def upload_document(
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     document = await process_document(
-        db, user_id, "file",
+        db,
+        user_id,
+        "file",
         file_path=str(file_path),
         content=content,
         title=Path(filename).stem,
-        tags=tag_list
+        tags=tag_list,
     )
     if document.status == "failed":
         raise HTTPException(status_code=422, detail=f"文档处理失败: {document.error_message}")
@@ -87,9 +90,15 @@ async def upload_document(
 async def import_documents(
     import_data: DocumentImport,
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await batch_import(db, user_id, import_data.sources, import_data.tags, import_data.on_duplicate)
+    result = await batch_import(
+        db,
+        user_id,
+        import_data.sources,
+        import_data.tags,
+        import_data.on_duplicate,
+    )
     return ImportResult(**result)
 
 
@@ -97,24 +106,28 @@ async def import_documents(
 async def create_document(
     document_data: DocumentCreate,
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     document = await process_document(
-        db, user_id, document_data.source_type,
-        source_url=document_data.source_url, content=document_data.content,
-        title=document_data.title, tags=document_data.tags
+        db,
+        user_id,
+        document_data.source_type,
+        source_url=document_data.source_url,
+        content=document_data.content,
+        title=document_data.title,
+        tags=document_data.tags,
     )
     return DocumentResponse.model_validate(document)
 
 
-@router.get("", response_model=List[DocumentResponse])
+@router.get("", response_model=list[DocumentResponse])
 async def list_documents(
-    status: Optional[str] = None,
-    tag: Optional[str] = None,
+    status: str | None = None,
+    tag: str | None = None,
     limit: int = 20,
     offset: int = 0,
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     query = select(Document).where(Document.user_id == user_id, Document.deleted_at.is_(None))
     if status:
@@ -128,10 +141,14 @@ async def list_documents(
 async def get_document(
     document_id: UUID,
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == user_id, Document.deleted_at.is_(None))
+        select(Document).where(
+            Document.id == document_id,
+            Document.user_id == user_id,
+            Document.deleted_at.is_(None),
+        ),
     )
     document = result.scalar_one_or_none()
     if not document:
@@ -143,7 +160,7 @@ async def get_document(
 async def retry_document_route(
     document_id: UUID,
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     document = await retry_document(db, user_id, document_id)
     if not document:
@@ -155,14 +172,19 @@ async def retry_document_route(
 async def delete_document(
     document_id: UUID,
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == user_id, Document.deleted_at.is_(None))
+        select(Document).where(
+            Document.id == document_id,
+            Document.user_id == user_id,
+            Document.deleted_at.is_(None),
+        ),
     )
     document = result.scalar_one_or_none()
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     from datetime import datetime
+
     document.deleted_at = datetime.utcnow()
     await db.commit()

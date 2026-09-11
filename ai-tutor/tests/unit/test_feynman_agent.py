@@ -1,7 +1,8 @@
 """Unit tests for feynman-agent."""
+
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 
 class TestFeynmanStateMachine:
@@ -16,11 +17,17 @@ class TestFeynmanEvaluator:
     @pytest.mark.asyncio
     async def test_evaluate_returns_score(self, feynman_modules):
         with patch("app.evaluator.llm_router") as mock_llm:
-            mock_llm.chat = AsyncMock(return_value={
-                "content": '{"accuracy": 35, "clarity": 25, "completeness": 28, "gaps": ["inheritance"], "follow_up": "Tell me more", "feedback": "Good explanation"}'
-            })
+            mock_llm.chat = AsyncMock(
+                return_value={
+                    "content": '{"accuracy": 35, "clarity": 25, "completeness": 28, '
+                    '"gaps": ["inheritance"], "follow_up": "Tell me more", '
+                    '"feedback": "Good explanation"}',
+                },
+            )
             result = await feynman_modules.evaluate_explanation(
-                "A class is...", "reference knowledge", "Python Classes"
+                "A class is...",
+                "reference knowledge",
+                "Python Classes",
             )
             assert result.score == 88
             assert result.dimensions["accuracy"] == 35
@@ -30,6 +37,8 @@ class TestFeynmanEvaluator:
         with patch("app.evaluator.llm_router") as mock_llm:
             mock_llm.chat = AsyncMock(side_effect=Exception("LLM fail"))
             result = await feynman_modules.evaluate_explanation(
-                "explain", "reference", "topic"
+                "explain",
+                "reference",
+                "topic",
             )
             assert result.score == 50

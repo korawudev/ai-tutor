@@ -1,8 +1,9 @@
 """SiliconFlow LLM 公共客户端 - JSON 结构化输出"""
+
 import json
 import os
 import re
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 
@@ -15,7 +16,7 @@ def chat_json(
     user_content: str,
     max_tokens: int = 1024,
     temperature: float = 0.3,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     调用 SiliconFlow chat/completions 并抽取 JSON 对象。
     返回 dict；缺失字段由调用方 setdefault 兜底。
@@ -33,7 +34,12 @@ def chat_json(
         resp = client.post(
             f"{SILICONFLOW_BASE_URL}/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"model": DEFAULT_MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": temperature},
+            json={
+                "model": DEFAULT_MODEL,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            },
         )
         resp.raise_for_status()
         content = resp.json()["choices"][0]["message"]["content"]

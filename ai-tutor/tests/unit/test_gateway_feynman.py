@@ -1,13 +1,14 @@
 """Unit tests for gateway feynman API."""
-import pytest
-from uuid import uuid4
+
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
-from fastapi.testclient import TestClient
+import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from gateway.app.api.feynman import router
 from gateway.app.api.auth import get_user_id_dependency
+from gateway.app.api.feynman import router
 from shared.database import get_db
 
 
@@ -34,8 +35,10 @@ def client(app):
 
 @pytest.fixture(autouse=True)
 def _patch_mastery_helpers():
-    with patch("gateway.app.api.feynman.upsert_mastery", new=AsyncMock()), \
-         patch("gateway.app.api.feynman.record_daily_stats", new=AsyncMock()):
+    with (
+        patch("gateway.app.api.feynman.upsert_mastery", new=AsyncMock()),
+        patch("gateway.app.api.feynman.record_daily_stats", new=AsyncMock()),
+    ):
         yield
 
 
@@ -78,29 +81,38 @@ class TestFeynmanEvaluate:
         resp = client.post(
             "/api/feynman/evaluate",
             params={"thread_id": str(uuid4())},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 400
 
     @patch("httpx.AsyncClient")
     def test_evaluate_success(self, mock_client_cls, client, mock_db, user_id):
         """Successful evaluation returns score + feedback."""
-        from shared.models.thread import Thread as ThreadORM, Run as RunORM
         from datetime import datetime
+
+        from shared.models.thread import Run as RunORM
+        from shared.models.thread import Thread as ThreadORM
 
         thread_id = uuid4()
         thread_obj = ThreadORM(
-            id=thread_id, user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow()
+            id=thread_id,
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
 
         run_obj = RunORM(
-            id=uuid4(), thread_id=thread_id, agent_type="feynman",
+            id=uuid4(),
+            thread_id=thread_id,
+            agent_type="feynman",
             status="completed",
             input={"input": "TCP三次握手是什么"},
             output={"response": "TCP三次握手是..."},
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         thread_result = MagicMock()
@@ -112,12 +124,17 @@ class TestFeynmanEvaluate:
         mock_db.execute = AsyncMock(side_effect=[thread_result, runs_result])
 
         eval_response = {
-            "choices": [{"message": {"content":
-                '{"score": 75, "understanding": 80, "completeness": 70, "clarity": 75,'
-                ' "strengths": ["正确描述了基本步骤"],'
-                ' "weaknesses": ["没有解释为什么需要三次握手"],'
-                ' "suggestions": ["建议复习TCP连接建立"]}'
-            }}]
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"score": 75, "understanding": 80, "completeness": 70, '
+                        '"clarity": 75,'
+                        ' "strengths": ["正确描述了基本步骤"],'
+                        ' "weaknesses": ["没有解释为什么需要三次握手"],'
+                        ' "suggestions": ["建议复习TCP连接建立"]}',
+                    },
+                },
+            ],
         }
         mock_resp = _make_httpx_response(200, eval_response)
         mock_resp.raise_for_status = MagicMock()
@@ -126,7 +143,7 @@ class TestFeynmanEvaluate:
         resp = client.post(
             "/api/feynman/evaluate",
             params={"thread_id": str(thread_id)},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -137,22 +154,31 @@ class TestFeynmanEvaluate:
     @patch("httpx.AsyncClient")
     def test_evaluate_llm_error_returns_fallback(self, mock_client_cls, client, mock_db, user_id):
         """LLM error returns fallback evaluation."""
-        from shared.models.thread import Thread as ThreadORM, Run as RunORM
         from datetime import datetime
+
+        from shared.models.thread import Run as RunORM
+        from shared.models.thread import Thread as ThreadORM
 
         thread_id = uuid4()
         thread_obj = ThreadORM(
-            id=thread_id, user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow()
+            id=thread_id,
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
 
         run_obj = RunORM(
-            id=uuid4(), thread_id=thread_id, agent_type="feynman",
+            id=uuid4(),
+            thread_id=thread_id,
+            agent_type="feynman",
             status="completed",
             input={"input": "TCP三次握手是什么"},
             output={"response": "TCP三次握手是..."},
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         def mock_execute(stmt):
@@ -171,7 +197,7 @@ class TestFeynmanEvaluate:
         resp = client.post(
             "/api/feynman/evaluate",
             params={"thread_id": str(thread_id)},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 500
 
@@ -184,21 +210,32 @@ class TestFeynmanAddToReview:
         app = FastAPI()
         app.include_router(router)
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.post("/api/feynman/add-to-review", json={
-            "thread_id": str(uuid4()), "score": 40, "review_items": []
-        })
+        resp = client.post(
+            "/api/feynman/add-to-review",
+            json={
+                "thread_id": str(uuid4()),
+                "score": 40,
+                "review_items": [],
+            },
+        )
         assert resp.status_code == 401
 
     def test_add_review_success(self, client, mock_db, user_id):
         """Successful add-to-review writes ReviewSchedule rows directly."""
-        from shared.models.thread import Thread as ThreadORM
         from datetime import datetime
+
+        from shared.models.thread import Thread as ThreadORM
 
         thread_id = uuid4()
         thread_obj = ThreadORM(
-            id=thread_id, user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow()
+            id=thread_id,
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
 
         mock_result = MagicMock()
@@ -211,11 +248,15 @@ class TestFeynmanAddToReview:
                 "thread_id": str(thread_id),
                 "score": 45,
                 "review_items": [
-                    {"topic": "TCP三次握手原因", "answer": "为了保证双方都具备收发能力", "source": "feynman"},
+                    {
+                        "topic": "TCP三次握手原因",
+                        "answer": "为了保证双方都具备收发能力",
+                        "source": "feynman",
+                    },
                     {"topic": "网络延迟问题", "answer": "传播+排队+处理延迟", "source": "feynman"},
-                ]
+                ],
             },
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -233,22 +274,28 @@ class TestFeynmanAddToReview:
             json={
                 "thread_id": str(uuid4()),
                 "score": 40,
-                "review_items": [{"topic": "test", "source": "feynman"}]
+                "review_items": [{"topic": "test", "source": "feynman"}],
             },
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 404
 
     def test_add_review_no_items(self, client, mock_db, user_id):
         """No review items → 400."""
-        from shared.models.thread import Thread as ThreadORM
         from datetime import datetime
+
+        from shared.models.thread import Thread as ThreadORM
 
         thread_id = uuid4()
         thread_obj = ThreadORM(
-            id=thread_id, user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow()
+            id=thread_id,
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
 
         mock_result = MagicMock()
@@ -258,6 +305,6 @@ class TestFeynmanAddToReview:
         resp = client.post(
             "/api/feynman/add-to-review",
             json={"thread_id": str(thread_id), "score": 40, "review_items": []},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 400

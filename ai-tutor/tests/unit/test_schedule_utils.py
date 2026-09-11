@@ -1,4 +1,5 @@
 """Unit tests for shared.utils.schedule scheduling helpers."""
+
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -23,7 +24,13 @@ class TestComputeNextReviewWindow:
 
     def test_exactly_evening_schedules_tomorrow_08(self):
         now = _local_to_utc(2026, 9, 7, 18, 0)  # 本地 18:00
-        assert compute_next_review_window(now) == _utc(2026, 9, 8, 0, 0)  # 次日本地 08:00 == UTC 00:00
+        assert compute_next_review_window(now) == _utc(
+            2026,
+            9,
+            8,
+            0,
+            0,
+        )  # 次日本地 08:00 == UTC 00:00
 
     def test_after_evening_schedules_tomorrow_08(self):
         now = _local_to_utc(2026, 9, 7, 23, 0)  # 本地 23:00

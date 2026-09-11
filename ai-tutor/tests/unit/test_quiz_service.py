@@ -1,7 +1,9 @@
 """Tests for quiz-agent quiz_service."""
-import pytest
-from uuid import uuid4
+
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
+
+import pytest
 
 
 class TestCalculateMasteryChange:
@@ -38,7 +40,11 @@ class TestGetKnowledgeContext:
         mock_result.fetchall.return_value = [MagicMock(content="Python classes")]
         db.execute.return_value = mock_result
         result = await quiz_service_modules._get_knowledge_context(
-            db, uuid4(), "topic", "Python", None
+            db,
+            uuid4(),
+            "topic",
+            "Python",
+            None,
         )
         assert "Python classes" in result
 
@@ -49,7 +55,11 @@ class TestGetKnowledgeContext:
         mock_result.fetchall.return_value = [MagicMock(content="Recent content")]
         db.execute.return_value = mock_result
         result = await quiz_service_modules._get_knowledge_context(
-            db, uuid4(), "time_range", None, {"start": "2024-01-01", "end": "2024-12-31"}
+            db,
+            uuid4(),
+            "time_range",
+            None,
+            {"start": "2024-01-01", "end": "2024-12-31"},
         )
         assert "Recent content" in result
 
@@ -60,7 +70,11 @@ class TestGetKnowledgeContext:
         mock_result.scalars.return_value.all.return_value = []
         db.execute.return_value = mock_result
         result = await quiz_service_modules._get_knowledge_context(
-            db, uuid4(), "wrong_review", None, None
+            db,
+            uuid4(),
+            "wrong_review",
+            None,
+            None,
         )
         assert "通用编程知识" in result
 
@@ -68,6 +82,10 @@ class TestGetKnowledgeContext:
     async def test_fallback(self, quiz_service_modules):
         db = AsyncMock()
         result = await quiz_service_modules._get_knowledge_context(
-            db, uuid4(), "unknown", None, None
+            db,
+            uuid4(),
+            "unknown",
+            None,
+            None,
         )
         assert "通用编程知识" in result

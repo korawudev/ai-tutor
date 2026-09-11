@@ -1,5 +1,5 @@
 """测验题目生成器"""
-from typing import List, Optional, Dict, Any
+
 from dataclasses import dataclass
 
 from shared.llm import llm_router
@@ -8,12 +8,13 @@ from shared.llm import llm_router
 @dataclass
 class GeneratedQuestion:
     """生成的题目"""
+
     id: str
     type: str  # choice, short_answer, concept_analysis
     question: str
-    options: Optional[Dict[str, str]] = None
-    answer: Optional[str] = None
-    explanation: Optional[str] = None
+    options: dict[str, str] | None = None
+    answer: str | None = None
+    explanation: str | None = None
     topic: str = ""
     points: int = 20
 
@@ -23,18 +24,18 @@ async def generate_questions(
     knowledge_context: str,
     question_count: int = 5,
     difficulty: str = "medium",
-    scope: str = "topic"
-) -> List[GeneratedQuestion]:
+    _scope: str = "topic",
+) -> list[GeneratedQuestion]:
     """
     生成测验题目
-    
+
     Args:
         topic: 主题
         knowledge_context: 知识上下文
         question_count: 题目数量
         difficulty: 难度 (easy, medium, hard)
-        scope: 范围 (topic, time_range, wrong_review)
-    
+        _scope: 范围 (topic, time_range, wrong_review)
+
     Returns:
         题目列表
     """
@@ -100,37 +101,39 @@ async def generate_questions(
         response = await llm_router.chat(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
-            max_tokens=2000
+            max_tokens=2000,
         )
-        
+
         content = response["content"]
-        
+
         import json
         import re
-        
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+
+        json_match = re.search(r"\{.*\}", content, re.DOTALL)
         if json_match:
             data = json.loads(json_match.group())
             questions_data = data.get("questions", [])
-            
+
             questions = []
             for q in questions_data:
-                questions.append(GeneratedQuestion(
-                    id=q.get("id", f"q{len(questions) + 1}"),
-                    type=q.get("type", "short_answer"),
-                    question=q.get("question", ""),
-                    options=q.get("options"),
-                    answer=q.get("answer"),
-                    explanation=q.get("explanation"),
-                    topic=q.get("topic", topic),
-                    points=q.get("points", 20)
-                ))
-            
+                questions.append(
+                    GeneratedQuestion(
+                        id=q.get("id", f"q{len(questions) + 1}"),
+                        type=q.get("type", "short_answer"),
+                        question=q.get("question", ""),
+                        options=q.get("options"),
+                        answer=q.get("answer"),
+                        explanation=q.get("explanation"),
+                        topic=q.get("topic", topic),
+                        points=q.get("points", 20),
+                    ),
+                )
+
             return questions[:question_count]
-    
+
     except Exception as e:
         print(f"Question generation failed: {e}")
-    
+
     # 失败时返回默认题目
     return [
         GeneratedQuestion(
@@ -141,6 +144,6 @@ async def generate_questions(
             answer="A",
             explanation="请选择正确答案。",
             topic=topic,
-            points=20
-        )
+            points=20,
+        ),
     ]

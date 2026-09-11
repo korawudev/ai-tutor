@@ -1,11 +1,14 @@
 """Unit tests for shared security utilities."""
-import pytest
-from uuid import uuid4
+
 from datetime import timedelta
+from uuid import uuid4
 
 from shared.utils.security import (
-    hash_password, verify_password,
-    create_access_token, decode_access_token, get_user_id_from_token
+    create_access_token,
+    decode_access_token,
+    get_user_id_from_token,
+    hash_password,
+    verify_password,
 )
 
 

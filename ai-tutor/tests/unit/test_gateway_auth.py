@@ -1,12 +1,12 @@
 """Unit tests for gateway auth API."""
+
+from unittest.mock import MagicMock
+
 import pytest
-from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock, patch
-
-from fastapi.testclient import TestClient
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from gateway.app.api.auth import router, get_user_id_dependency
+from gateway.app.api.auth import get_user_id_dependency, router
 from shared.database import get_db
 
 
@@ -61,9 +61,14 @@ class TestRegister:
         mock_result.scalar_one_or_none.return_value = sample_user
         mock_db.execute.return_value = mock_result
 
-        resp = client.post("/api/auth/register", json={
-            "email": "test@example.com", "username": "new", "password": "pass123"
-        })
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                "email": "test@example.com",
+                "username": "new",
+                "password": "pass123",
+            },
+        )
         assert resp.status_code == 400
 
 
@@ -73,7 +78,11 @@ class TestLogin:
         mock_result.scalar_one_or_none.return_value = sample_user
         mock_db.execute.return_value = mock_result
 
-        resp = client.post("/api/auth/login", json={
-            "email": "test@example.com", "password": "wrongpass"
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "wrongpass",
+            },
+        )
         assert resp.status_code == 401

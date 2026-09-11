@@ -1,10 +1,10 @@
 """数据模型 - User"""
+
 from datetime import datetime
-from typing import Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, EmailStr
-from sqlalchemy import Column, String, DateTime, JSON
+from pydantic import BaseModel
+from sqlalchemy import JSON, Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase
 
@@ -15,6 +15,7 @@ class Base(DeclarativeBase):
 
 class User(Base):
     """用户模型"""
+
     __tablename__ = "users"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -30,6 +31,7 @@ class User(Base):
 # Pydantic Schemas
 class UserCreate(BaseModel):
     """创建用户请求"""
+
     email: str
     username: str
     password: str
@@ -37,10 +39,11 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     """用户响应"""
+
     id: UUID
     email: str
     username: str
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -48,12 +51,14 @@ class UserResponse(BaseModel):
 
 class UserLogin(BaseModel):
     """用户登录请求"""
+
     email: str
     password: str
 
 
 class Token(BaseModel):
     """JWT Token 响应"""
+
     access_token: str
     token_type: str = "bearer"
     expires_in: int

@@ -1,12 +1,23 @@
 """Gateway 服务 - 主入口"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from shared.utils.config import settings
 from shared.database import init_db
-from .api import auth_router, threads_router, runs_router, hitl_router, quiz_router, review_router, progress_router, feynman_router, documents_router
+
+from .api import (
+    auth_router,
+    documents_router,
+    feynman_router,
+    hitl_router,
+    progress_router,
+    quiz_router,
+    review_router,
+    runs_router,
+    threads_router,
+)
 
 
 @asynccontextmanager
@@ -22,7 +33,7 @@ app = FastAPI(
     title="AI Tutor Gateway",
     description="AI 私教系统 - API 网关",
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS 配置
@@ -58,5 +69,5 @@ async def root():
     return {
         "service": "AI Tutor Gateway",
         "version": "0.1.0",
-        "docs": "/docs"
+        "docs": "/docs",
     }

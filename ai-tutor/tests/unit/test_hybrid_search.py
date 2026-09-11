@@ -1,8 +1,10 @@
 """Tests for rag-agent hybrid_search, vector_store, and reranker."""
-import pytest
-from uuid import uuid4
+
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
 
 
 class TestExtractKeywords:
@@ -32,9 +34,19 @@ class TestHybridSearch:
     @pytest.mark.asyncio
     async def test_empty_results(self, rag_search_modules):
         db = AsyncMock()
-        with patch("app.tools.hybrid_search.search_similar", new_callable=AsyncMock, return_value=[]), \
-             patch("app.tools.hybrid_search.search_by_keywords", new_callable=AsyncMock, return_value=[]):
-            result = await rag_search_modules.hybrid_search(db, "test query", [0.1]*10, uuid4())
+        with (
+            patch(
+                "app.tools.hybrid_search.search_similar",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "app.tools.hybrid_search.search_by_keywords",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await rag_search_modules.hybrid_search(db, "test query", [0.1] * 10, uuid4())
             assert result == []
 
     @pytest.mark.asyncio
@@ -42,9 +54,19 @@ class TestHybridSearch:
         db = AsyncMock()
         mock_chunk = MagicMock()
         mock_chunk.id = uuid4()
-        with patch("app.tools.hybrid_search.search_similar", new_callable=AsyncMock, return_value=[(mock_chunk, 0.9)]), \
-             patch("app.tools.hybrid_search.search_by_keywords", new_callable=AsyncMock, return_value=[]):
-            result = await rag_search_modules.hybrid_search(db, "test", [0.1]*10, uuid4())
+        with (
+            patch(
+                "app.tools.hybrid_search.search_similar",
+                new_callable=AsyncMock,
+                return_value=[(mock_chunk, 0.9)],
+            ),
+            patch(
+                "app.tools.hybrid_search.search_by_keywords",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await rag_search_modules.hybrid_search(db, "test", [0.1] * 10, uuid4())
             assert len(result) == 1
             assert result[0].source == "vector"
 
@@ -53,9 +75,19 @@ class TestHybridSearch:
         db = AsyncMock()
         mock_chunk = MagicMock()
         mock_chunk.id = uuid4()
-        with patch("app.tools.hybrid_search.search_similar", new_callable=AsyncMock, return_value=[]), \
-             patch("app.tools.hybrid_search.search_by_keywords", new_callable=AsyncMock, return_value=[(mock_chunk, 0.8)]):
-            result = await rag_search_modules.hybrid_search(db, "test", [0.1]*10, uuid4())
+        with (
+            patch(
+                "app.tools.hybrid_search.search_similar",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "app.tools.hybrid_search.search_by_keywords",
+                new_callable=AsyncMock,
+                return_value=[(mock_chunk, 0.8)],
+            ),
+        ):
+            result = await rag_search_modules.hybrid_search(db, "test", [0.1] * 10, uuid4())
             assert len(result) == 1
             assert result[0].source == "keyword"
 
@@ -64,9 +96,19 @@ class TestHybridSearch:
         db = AsyncMock()
         mock_chunk = MagicMock()
         mock_chunk.id = uuid4()
-        with patch("app.tools.hybrid_search.search_similar", new_callable=AsyncMock, return_value=[(mock_chunk, 0.9)]), \
-             patch("app.tools.hybrid_search.search_by_keywords", new_callable=AsyncMock, return_value=[(mock_chunk, 0.8)]):
-            result = await rag_search_modules.hybrid_search(db, "test", [0.1]*10, uuid4())
+        with (
+            patch(
+                "app.tools.hybrid_search.search_similar",
+                new_callable=AsyncMock,
+                return_value=[(mock_chunk, 0.9)],
+            ),
+            patch(
+                "app.tools.hybrid_search.search_by_keywords",
+                new_callable=AsyncMock,
+                return_value=[(mock_chunk, 0.8)],
+            ),
+        ):
+            result = await rag_search_modules.hybrid_search(db, "test", [0.1] * 10, uuid4())
             assert len(result) == 1
             assert result[0].source == "both"
 
@@ -78,9 +120,25 @@ class TestHybridSearch:
             mc = MagicMock()
             mc.id = uuid4()
             chunks.append((mc, 0.9))
-        with patch("app.tools.hybrid_search.search_similar", new_callable=AsyncMock, return_value=chunks), \
-             patch("app.tools.hybrid_search.search_by_keywords", new_callable=AsyncMock, return_value=[]):
-            result = await rag_search_modules.hybrid_search(db, "test", [0.1]*10, uuid4(), top_k=2)
+        with (
+            patch(
+                "app.tools.hybrid_search.search_similar",
+                new_callable=AsyncMock,
+                return_value=chunks,
+            ),
+            patch(
+                "app.tools.hybrid_search.search_by_keywords",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await rag_search_modules.hybrid_search(
+                db,
+                "test",
+                [0.1] * 10,
+                uuid4(),
+                top_k=2,
+            )
             assert len(result) == 2
 
 
@@ -91,7 +149,7 @@ class TestSearchSimilar:
         mock_result = MagicMock()
         mock_result.fetchall.return_value = []
         db.execute.return_value = mock_result
-        result = await rag_search_modules.search_similar(db, [0.1]*10, uuid4())
+        result = await rag_search_modules.search_similar(db, [0.1] * 10, uuid4())
         assert result == []
 
     @pytest.mark.asyncio
@@ -109,7 +167,7 @@ class TestSearchSimilar:
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [row]
         db.execute.return_value = mock_result
-        result = await rag_search_modules.search_similar(db, [0.1]*10, uuid4())
+        result = await rag_search_modules.search_similar(db, [0.1] * 10, uuid4())
         assert len(result) == 1
         assert result[0][1] == 0.85
 
@@ -172,7 +230,7 @@ class TestReranker:
         mock_chunk.content = "test"
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "results": [{"index": 0, "relevance_score": 0.95}]
+            "results": [{"index": 0, "relevance_score": 0.95}],
         }
         mock_response.raise_for_status = MagicMock()
         with patch("app.tools.reranker.httpx") as mock_httpx:

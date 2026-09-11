@@ -1,8 +1,10 @@
 """Tests for rag-agent vector_store."""
-import pytest
-from uuid import uuid4
+
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
+
+import pytest
 
 
 class TestSearchSimilar:
@@ -12,7 +14,7 @@ class TestSearchSimilar:
         mock_result = MagicMock()
         mock_result.fetchall.return_value = []
         db.execute.return_value = mock_result
-        result = await rag_search_modules.search_similar(db, [0.1]*10, uuid4())
+        result = await rag_search_modules.search_similar(db, [0.1] * 10, uuid4())
         assert result == []
 
     @pytest.mark.asyncio
@@ -30,7 +32,7 @@ class TestSearchSimilar:
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [row]
         db.execute.return_value = mock_result
-        result = await rag_search_modules.search_similar(db, [0.1]*10, uuid4())
+        result = await rag_search_modules.search_similar(db, [0.1] * 10, uuid4())
         assert len(result) == 1
         assert result[0][1] == 0.85
 

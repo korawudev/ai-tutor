@@ -1,13 +1,13 @@
 """Unit tests for gateway progress API."""
+
+from unittest.mock import MagicMock
+
 import pytest
-from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock
-
-from fastapi.testclient import TestClient
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from gateway.app.api.progress import router
 from gateway.app.api.auth import get_user_id_dependency
+from gateway.app.api.progress import router
 from shared.database import get_db
 
 
@@ -48,7 +48,7 @@ class TestDashboard:
 
         resp = client.get(
             "/api/progress/dashboard",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -72,7 +72,7 @@ class TestMasteryList:
 
         resp = client.get(
             "/api/progress/mastery",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert resp.json() == []

@@ -1,13 +1,14 @@
 """Unit tests for gateway documents proxy API."""
-import pytest
-from uuid import uuid4
+
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
-from fastapi.testclient import TestClient
+import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from gateway.app.api.documents import router
 from gateway.app.api.auth import get_user_id_dependency
+from gateway.app.api.documents import router
 
 
 @pytest.fixture
@@ -52,9 +53,12 @@ class TestDocumentsProxy:
         app = FastAPI()
         app.include_router(router)
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.post("/api/documents/import", json={
-            "sources": [{"type": "url", "value": "https://example.com"}]
-        })
+        resp = client.post(
+            "/api/documents/import",
+            json={
+                "sources": [{"type": "url", "value": "https://example.com"}],
+            },
+        )
         assert resp.status_code == 401
 
     def test_list_no_auth(self):
@@ -68,8 +72,13 @@ class TestDocumentsProxy:
     @patch("gateway.app.api.documents.httpx.AsyncClient")
     def test_import_proxies_to_knowledge_agent(self, mock_client_cls, client, valid_token):
         expected = {
-            "batch_id": str(uuid4()), "total": 1, "completed": 1,
-            "failed": 0, "skipped": 0, "documents": [], "duplicates": []
+            "batch_id": str(uuid4()),
+            "total": 1,
+            "completed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "documents": [],
+            "duplicates": [],
         }
         mock_resp = _make_httpx_response(200, expected)
         mock_client_cls.return_value = _make_httpx_client(mock_resp)
@@ -77,7 +86,7 @@ class TestDocumentsProxy:
         resp = client.post(
             "/api/documents/import",
             json={"sources": [{"type": "url", "value": "https://example.com"}]},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert resp.json()["total"] == 1
@@ -89,7 +98,7 @@ class TestDocumentsProxy:
 
         resp = client.get(
             "/api/documents",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert resp.json() == []
@@ -102,6 +111,6 @@ class TestDocumentsProxy:
         resp = client.post(
             "/api/documents/import",
             json={"sources": [{"type": "url", "value": "https://x.com"}]},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 500

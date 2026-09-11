@@ -1,20 +1,18 @@
 """Unit tests for shared models."""
-import pytest
-from uuid import uuid4
+
 from datetime import datetime
+from uuid import uuid4
 
 from shared.models.document import (
-    DocumentCreate, DocumentImport, DocumentResponse,
-    DuplicateDetected, ImportResult
+    DocumentCreate,
+    DocumentImport,
+    DocumentResponse,
+    DuplicateDetected,
+    ImportResult,
 )
-from shared.models.quiz import (
-    QuizGenerate, QuizSubmit, QuizResponse, QuizResult,
-    WrongQuestionResponse
-)
-from shared.models.review import (
-    ReviewSubmit, ReviewResult, ReviewItem, ReviewListResponse
-)
-from shared.models.user import UserCreate, UserResponse, UserLogin, Token
+from shared.models.quiz import QuizGenerate, QuizResponse, QuizResult, QuizSubmit
+from shared.models.review import ReviewListResponse, ReviewResult, ReviewSubmit
+from shared.models.user import Token, UserCreate, UserLogin, UserResponse
 
 
 class TestDocumentModels:
@@ -30,22 +28,34 @@ class TestDocumentModels:
 
     def test_document_response(self):
         resp = DocumentResponse(
-            id=uuid4(), title="T", source_type="url", status="completed",
-            tags=[], chunk_count=0, created_at=datetime.utcnow()
+            id=uuid4(),
+            title="T",
+            source_type="url",
+            status="completed",
+            tags=[],
+            chunk_count=0,
+            created_at=datetime.utcnow(),
         )
         assert resp.status == "completed"
 
     def test_duplicate_detected(self):
         dup = DuplicateDetected(
-            source_id="s1", existing_doc_id=uuid4(),
-            existing_title="Existing", message="Already exists"
+            source_id="s1",
+            existing_doc_id=uuid4(),
+            existing_title="Existing",
+            message="Already exists",
         )
         assert dup.message == "Already exists"
 
     def test_import_result(self):
         result = ImportResult(
-            batch_id=uuid4(), total=1, completed=1, failed=0, skipped=0,
-            documents=[], duplicates=[]
+            batch_id=uuid4(),
+            total=1,
+            completed=1,
+            failed=0,
+            skipped=0,
+            documents=[],
+            duplicates=[],
         )
         assert result.completed == 1
 
@@ -61,15 +71,25 @@ class TestQuizModels:
 
     def test_quiz_response(self):
         qr = QuizResponse(
-            id=uuid4(), scope="topic", questions=[], total_questions=0,
-            status="pending", created_at=datetime.utcnow()
+            id=uuid4(),
+            scope="topic",
+            questions=[],
+            total_questions=0,
+            status="pending",
+            created_at=datetime.utcnow(),
         )
         assert qr.status == "pending"
 
     def test_quiz_result(self):
         qr = QuizResult(
-            quiz_id=uuid4(), score=80.0, total_questions=5, correct_count=4,
-            results=[], wrong_questions=[], mastery_change=5.0, time_spent_seconds=0
+            quiz_id=uuid4(),
+            score=80.0,
+            total_questions=5,
+            correct_count=4,
+            results=[],
+            wrong_questions=[],
+            mastery_change=5.0,
+            time_spent_seconds=0,
         )
         assert qr.score == 80.0
 
@@ -81,9 +101,13 @@ class TestReviewModels:
 
     def test_review_result(self):
         rr = ReviewResult(
-            schedule_id=uuid4(), old_interval=1.0, new_interval=2.5,
-            ease_factor=2.5, mastery_score=60.0,
-            next_review=datetime.utcnow(), status="active"
+            schedule_id=uuid4(),
+            old_interval=1.0,
+            new_interval=2.5,
+            ease_factor=2.5,
+            mastery_score=60.0,
+            next_review=datetime.utcnow(),
+            status="active",
         )
         assert rr.status == "active"
 
@@ -102,6 +126,14 @@ class TestUserModels:
         assert ul.email == "a@b.com"
 
     def test_token_model(self):
-        from shared.models.user import UserResponse
-        t = Token(access_token="abc", expires_in=3600, user=UserResponse(id=uuid4(), email="a@b.com", username="u", created_at=datetime.utcnow()))
+        t = Token(
+            access_token="abc",
+            expires_in=3600,
+            user=UserResponse(
+                id=uuid4(),
+                email="a@b.com",
+                username="u",
+                created_at=datetime.utcnow(),
+            ),
+        )
         assert t.expires_in == 3600

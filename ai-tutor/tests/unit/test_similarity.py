@@ -1,4 +1,5 @@
 """Unit tests for shared.utils.similarity."""
+
 from shared.utils.similarity import normalize, similarity
 
 
@@ -21,7 +22,10 @@ class TestSimilarity:
         assert similarity("", "abc") == 0.0
 
     def test_near_duplicate_high(self):
-        assert similarity(
-            "Python中的列表和元组有什么区别",
-            "Python中的列表和元组有什么区别",
-        ) >= 0.9
+        assert (
+            similarity(
+                "Python中的列表和元组有什么区别",
+                "Python中的列表和元组有什么区别",
+            )
+            >= 0.9
+        )

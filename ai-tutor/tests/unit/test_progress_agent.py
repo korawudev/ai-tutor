@@ -1,7 +1,9 @@
 """Unit tests for progress-agent tools."""
-import pytest
+
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
+
+import pytest
 
 
 class TestCalculateMastery:
@@ -15,12 +17,17 @@ class TestCalculateMastery:
         mock_feynman_result.scalar_one_or_none.return_value = None
         mock_review_result = MagicMock()
         mock_review_result.scalar_one_or_none.return_value = None
-        mock_db.execute.side_effect = [mock_result, mock_quiz_result, mock_feynman_result, mock_review_result]
+        mock_db.execute.side_effect = [
+            mock_result,
+            mock_quiz_result,
+            mock_feynman_result,
+            mock_review_result,
+        ]
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
         chunk_id = uuid4()
-        record = await progress_modules.calculate_mastery(mock_db, user_id, chunk_id, "Python")
+        await progress_modules.calculate_mastery(mock_db, user_id, chunk_id, "Python")
         mock_db.add.assert_called_once()
 
     @pytest.mark.asyncio
@@ -35,11 +42,16 @@ class TestCalculateMastery:
         mock_feynman_result.scalar_one_or_none.return_value = None
         mock_review_result = MagicMock()
         mock_review_result.scalar_one_or_none.return_value = None
-        mock_db.execute.side_effect = [mock_result, mock_quiz_result, mock_feynman_result, mock_review_result]
+        mock_db.execute.side_effect = [
+            mock_result,
+            mock_quiz_result,
+            mock_feynman_result,
+            mock_review_result,
+        ]
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
-        record = await progress_modules.calculate_mastery(mock_db, user_id, uuid4(), "Python")
+        await progress_modules.calculate_mastery(mock_db, user_id, uuid4(), "Python")
         mock_db.add.assert_not_called()
 
 

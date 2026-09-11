@@ -1,11 +1,12 @@
 """Gateway API - 文档代理 API"""
-from typing import List, Optional
+
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Header, UploadFile, status
 import httpx
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 
-from shared.models import DocumentResponse, DocumentImport, DocumentCreate, ImportResult
+from shared.models import DocumentCreate, DocumentImport, DocumentResponse, ImportResult
+
 from .auth import get_user_id_dependency
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -36,7 +37,13 @@ async def upload_document(
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{KNOWLEDGE_AGENT_URL}/api/documents/upload",
-            files={"file": (file.filename or "upload", content, file.content_type or "application/octet-stream")},
+            files={
+                "file": (
+                    file.filename or "upload",
+                    content,
+                    file.content_type or "application/octet-stream",
+                ),
+            },
             data={"tags": tags},
             headers=_auth_headers(authorization),
             timeout=300.0,
@@ -82,10 +89,10 @@ async def create_document(
         return resp.json()
 
 
-@router.get("", response_model=List[DocumentResponse])
+@router.get("", response_model=list[DocumentResponse])
 async def list_documents(
-    status: Optional[str] = None,
-    tag: Optional[str] = None,
+    status: str | None = None,
+    tag: str | None = None,
     limit: int = 20,
     offset: int = 0,
     authorization: str = Header(...),

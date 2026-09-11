@@ -1,7 +1,9 @@
 """Unit tests for SSE manager."""
-import pytest
+
 import asyncio
 from uuid import uuid4
+
+import pytest
 
 from gateway.app.core.sse_manager import SSEManager
 

@@ -1,21 +1,27 @@
 """Integration tests simulating full user flows with mocked DB.
 Tests gateway routing, auth, and endpoint logic end-to-end.
 """
+
 import json
-import pytest
-from uuid import uuid4
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
-from fastapi.testclient import TestClient
+import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from gateway.app.api import (
-    auth_router, documents_router, quiz_router,
-    review_router, threads_router, runs_router,
-    hitl_router, progress_router, feynman_router,
+    auth_router,
+    documents_router,
+    feynman_router,
+    hitl_router,
+    progress_router,
+    quiz_router,
+    review_router,
+    runs_router,
+    threads_router,
 )
-from gateway.app.api.auth import get_user_id_dependency
 from shared.database import get_db
 from shared.utils import create_access_token
 
@@ -37,8 +43,17 @@ def mock_db():
 @pytest.fixture
 def client(mock_db):
     app = FastAPI()
-    for r in [auth_router, documents_router, quiz_router, review_router,
-              threads_router, runs_router, hitl_router, progress_router, feynman_router]:
+    for r in [
+        auth_router,
+        documents_router,
+        quiz_router,
+        review_router,
+        threads_router,
+        runs_router,
+        hitl_router,
+        progress_router,
+        feynman_router,
+    ]:
         app.include_router(r)
 
     async def override_db():
@@ -52,13 +67,19 @@ class TestRegisterThenLogin:
     def test_register_and_login(self, client, mock_db):
         mock_db.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
 
-        reg_resp = client.post("/api/auth/register", json={
-            "username": "flowuser", "email": "flow@example.com", "password": "flowpass123"
-        })
+        reg_resp = client.post(
+            "/api/auth/register",
+            json={
+                "username": "flowuser",
+                "email": "flow@example.com",
+                "password": "flowpass123",
+            },
+        )
         assert reg_resp.status_code == 201
         assert "access_token" in reg_resp.json()
 
         from shared.utils import hash_password
+
         fake_user = MagicMock()
         fake_user.email = "flow@example.com"
         fake_user.username = "flowuser"
@@ -66,23 +87,37 @@ class TestRegisterThenLogin:
         fake_user.id = uuid4()
         fake_user.created_at = datetime.utcnow()
         fake_user.avatar_url = None
-        mock_db.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=fake_user))
+        mock_db.execute.return_value = MagicMock(
+            scalar_one_or_none=MagicMock(return_value=fake_user),
+        )
 
-        login_resp = client.post("/api/auth/login", json={
-            "email": "flow@example.com", "password": "flowpass123"
-        })
+        login_resp = client.post(
+            "/api/auth/login",
+            json={
+                "email": "flow@example.com",
+                "password": "flowpass123",
+            },
+        )
         assert login_resp.status_code == 200
         assert "access_token" in login_resp.json()
 
     def test_register_duplicate_email(self, client, mock_db):
         from shared.models import User
+
         existing = MagicMock(spec=User)
         existing.email = "dup@example.com"
-        mock_db.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=existing))
+        mock_db.execute.return_value = MagicMock(
+            scalar_one_or_none=MagicMock(return_value=existing),
+        )
 
-        resp = client.post("/api/auth/register", json={
-            "username": "dupuser", "email": "dup@example.com", "password": "pass123"
-        })
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                "username": "dupuser",
+                "email": "dup@example.com",
+                "password": "pass123",
+            },
+        )
         assert resp.status_code == 400
 
 
@@ -98,8 +133,13 @@ class TestImportThenQuizFlow:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {
-                "batch_id": str(uuid4()), "total": 1, "completed": 1,
-                "failed": 0, "skipped": 0, "documents": [], "duplicates": []
+                "batch_id": str(uuid4()),
+                "total": 1,
+                "completed": 1,
+                "failed": 0,
+                "skipped": 0,
+                "documents": [],
+                "duplicates": [],
             }
             inst = MagicMock()
             inst.__aenter__ = AsyncMock(return_value=inst)
@@ -107,24 +147,44 @@ class TestImportThenQuizFlow:
             inst.post = AsyncMock(return_value=mock_resp)
             mock_httpx.return_value = inst
 
-            import_resp = client.post("/api/documents/import", json={
-                "sources": [{"type": "url", "value": "https://example.com/doc"}]
-            }, headers=headers)
+            import_resp = client.post(
+                "/api/documents/import",
+                json={
+                    "sources": [{"type": "url", "value": "https://example.com/doc"}],
+                },
+                headers=headers,
+            )
             assert import_resp.status_code == 200
 
         with patch("gateway.app.api.quiz.llm_router") as mock_llm:
-            mock_llm.chat = AsyncMock(return_value={
-                "content": json.dumps({
-                    "questions": [
-                        {"id": "q1", "type": "choice", "question": "What is Python?",
-                         "options": {"A": "Language", "B": "Snake"},
-                         "answer": "A", "topic": "Python", "points": 20}
-                    ]
-                })
-            })
-            quiz_resp = client.post("/api/quiz/generate", json={
-                "scope": "topic", "topic": "Python", "question_count": 1
-            }, headers=headers)
+            mock_llm.chat = AsyncMock(
+                return_value={
+                    "content": json.dumps(
+                        {
+                            "questions": [
+                                {
+                                    "id": "q1",
+                                    "type": "choice",
+                                    "question": "What is Python?",
+                                    "options": {"A": "Language", "B": "Snake"},
+                                    "answer": "A",
+                                    "topic": "Python",
+                                    "points": 20,
+                                },
+                            ],
+                        },
+                    ),
+                },
+            )
+            quiz_resp = client.post(
+                "/api/quiz/generate",
+                json={
+                    "scope": "topic",
+                    "topic": "Python",
+                    "question_count": 1,
+                },
+                headers=headers,
+            )
             assert quiz_resp.status_code == 200
             assert quiz_resp.json()["total_questions"] == 1
 
@@ -140,22 +200,35 @@ class TestQuizSubmitThenWrongBook:
         quiz.id = quiz_id
         quiz.user_id = user_id
         quiz.questions = [
-            {"id": "q1", "type": "choice", "question": "Q?",
-             "options": {"A": "a", "B": "b"}, "answer": "A", "points": 20}
+            {
+                "id": "q1",
+                "type": "choice",
+                "question": "Q?",
+                "options": {"A": "a", "B": "b"},
+                "answer": "A",
+                "points": 20,
+            },
         ]
         quiz.total_questions = 1
 
         mock_db.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=quiz))
 
-        submit_resp = client.post("/api/quiz/submit", json={
-            "quiz_id": str(quiz_id), "answers": {"q1": "B"}
-        }, headers=headers)
+        submit_resp = client.post(
+            "/api/quiz/submit",
+            json={
+                "quiz_id": str(quiz_id),
+                "answers": {"q1": "B"},
+            },
+            headers=headers,
+        )
         assert submit_resp.status_code == 200
         result = submit_resp.json()
         assert result["correct_count"] == 0
         assert len(result["wrong_questions"]) == 1
 
-        mock_db.execute.return_value = MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))))
+        mock_db.execute.return_value = MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))),
+        )
         wrong_book_resp = client.get("/api/quiz/wrong-book", headers=headers)
         assert wrong_book_resp.status_code == 200
 
@@ -197,9 +270,14 @@ class TestReviewFlow:
 
         mock_db.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=s))
 
-        resp = client.post("/api/review/submit", json={
-            "schedule_id": str(s.id), "result": "easy"
-        }, headers=headers)
+        resp = client.post(
+            "/api/review/submit",
+            json={
+                "schedule_id": str(s.id),
+                "result": "easy",
+            },
+            headers=headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["mastery_score"] == 65.0
@@ -227,9 +305,14 @@ class TestReviewFlow:
 
         mock_db.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=s))
 
-        resp = client.post("/api/review/submit", json={
-            "schedule_id": str(s.id), "result": "forgot"
-        }, headers=headers)
+        resp = client.post(
+            "/api/review/submit",
+            json={
+                "schedule_id": str(s.id),
+                "result": "forgot",
+            },
+            headers=headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["new_interval"] == 1.0
@@ -252,9 +335,15 @@ class TestReviewFlow:
         s.reason = None
         s.id = uuid4()
 
-        stats_result = MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[s]))))
-        pending_result = MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[s]))))
-        overdue_result = MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[s]))))
+        stats_result = MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[s]))),
+        )
+        pending_result = MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[s]))),
+        )
+        overdue_result = MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[s]))),
+        )
 
         mock_db.execute.side_effect = [stats_result, pending_result, overdue_result]
 
@@ -283,15 +372,20 @@ class TestFeynmanProxyFlow:
         inst.post = AsyncMock(return_value=mock_resp)
 
         with patch("httpx.AsyncClient", return_value=inst):
-            start_resp = client.post("/api/feynman/start",
-                                     json={"topic": "Python classes"}, headers=headers)
+            start_resp = client.post(
+                "/api/feynman/start",
+                json={"topic": "Python classes"},
+                headers=headers,
+            )
             assert start_resp.status_code == 200
 
         mock_resp.json.return_value = {"state": "evaluating", "feedback": "good"}
         with patch("httpx.AsyncClient", return_value=inst):
-            explain_resp = client.post("/api/feynman/explain",
-                                       json={"thread_id": "t1", "explanation": "A class is..."},
-                                       headers=headers)
+            explain_resp = client.post(
+                "/api/feynman/explain",
+                json={"thread_id": "t1", "explanation": "A class is..."},
+                headers=headers,
+            )
             assert explain_resp.status_code == 200
             assert explain_resp.json()["state"] == "evaluating"
 
@@ -325,7 +419,7 @@ class TestThreadLifecycle:
         t.created_at = datetime.utcnow()
 
         mock_db.execute.return_value = MagicMock(
-            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[t])))
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[t]))),
         )
 
         create_resp = client.post("/api/threads", json={"agent_type": "quiz"}, headers=headers)

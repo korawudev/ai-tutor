@@ -1,15 +1,17 @@
 """Unit tests for shared LLM router."""
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
-from shared.llm.router import LLMRouter, LLMProvider
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from shared.llm.router import LLMProvider, LLMRouter
 from shared.utils.config import settings
 
 
 @pytest.fixture
 def router(monkeypatch):
-    # llm_router 只尝试已配置 API key 的 provider，测试注入备用 key 以覆盖 fallback/指定 provider 场景
+    # llm_router 只尝试已配置 API key 的 provider，
+    # 测试注入备用 key 以覆盖 fallback/指定 provider 场景
     monkeypatch.setattr(settings, "DEEPSEEK_API_KEY", "test-deepseek-key")
     monkeypatch.setattr(settings, "QWEN_API_KEY", "test-qwen-key")
     monkeypatch.setattr(settings, "GLM_API_KEY", "test-glm-key")
@@ -33,7 +35,7 @@ class TestChat:
         mock_response.json.return_value = {
             "choices": [{"message": {"content": "Hello!"}}],
             "model": "deepseek-ai/DeepSeek-V3",
-            "usage": {"prompt_tokens": 10, "completion_tokens": 5}
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -54,7 +56,7 @@ class TestChat:
         success_response.json.return_value = {
             "choices": [{"message": {"content": "OK"}}],
             "model": "deepseek-chat",
-            "usage": {}
+            "usage": {},
         }
         success_response.raise_for_status = MagicMock()
 
@@ -88,7 +90,7 @@ class TestChat:
         mock_response.json.return_value = {
             "choices": [{"message": {"content": "DeepSeek says hi"}}],
             "model": "deepseek-chat",
-            "usage": {}
+            "usage": {},
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -97,7 +99,7 @@ class TestChat:
 
         result = await router.chat(
             [{"role": "user", "content": "Hi"}],
-            provider=LLMProvider.DEEPSEEK
+            provider=LLMProvider.DEEPSEEK,
         )
         assert result["content"] == "DeepSeek says hi"
 
@@ -108,7 +110,7 @@ class TestEmbed:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "data": [{"embedding": [0.1, 0.2, 0.3]}]
+            "data": [{"embedding": [0.1, 0.2, 0.3]}],
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -123,7 +125,7 @@ class TestEmbed:
         router._client = AsyncMock()
         router._client.post = AsyncMock(side_effect=Exception("API error"))
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="API error"):
             await router.embed(["hello"])
 
 

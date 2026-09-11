@@ -1,16 +1,15 @@
-from typing import List, Optional
-from uuid import UUID
 from dataclasses import dataclass, field
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..tools import hybrid_search, rewrite_query, rerank
+from ..tools import hybrid_search, rerank, rewrite_query
 
 
 @dataclass
 class SearchServiceResponse:
-    sources: List[dict] = field(default_factory=list)
-    rewritten_queries: List[str] = field(default_factory=list)
+    sources: list[dict] = field(default_factory=list)
+    rewritten_queries: list[str] = field(default_factory=list)
     search_latency_ms: int = 0
 
 
@@ -19,9 +18,10 @@ async def search_knowledge(
     query: str,
     user_id: UUID,
     top_k: int = 5,
-    rewrite: bool = True
+    rewrite: bool = True,
 ) -> SearchServiceResponse:
     import time
+
     start_time = time.time()
 
     rewritten_queries = [query]
@@ -37,14 +37,16 @@ async def search_knowledge(
     seen_ids = set()
     unique_results = []
     for result in all_results:
-        chunk_id = str(result.chunk.id) if hasattr(result, 'chunk') else str(result.get("chunk_id", ""))
+        chunk_id = (
+            str(result.chunk.id) if hasattr(result, "chunk") else str(result.get("chunk_id", ""))
+        )
         if chunk_id not in seen_ids:
             seen_ids.add(chunk_id)
             unique_results.append(result)
 
     chunk_score_pairs = []
     for r in unique_results:
-        if hasattr(r, 'chunk'):
+        if hasattr(r, "chunk"):
             chunk_score_pairs.append((r.chunk, r.score))
         else:
             chunk_score_pairs.append((r, r.get("score", 0)))
@@ -53,22 +55,24 @@ async def search_knowledge(
 
     sources = []
     for result in reranked:
-        chunk = result.chunk if hasattr(result, 'chunk') else result
-        score = result.score if hasattr(result, 'score') else 0
-        sources.append({
-            "chunk_id": str(chunk.id),
-            "document_id": str(chunk.document_id),
-            "content": chunk.content,
-            "relevance_score": score,
-            "metadata": getattr(chunk, 'metadata_', {}) or {}
-        })
+        chunk = result.chunk if hasattr(result, "chunk") else result
+        score = result.score if hasattr(result, "score") else 0
+        sources.append(
+            {
+                "chunk_id": str(chunk.id),
+                "document_id": str(chunk.document_id),
+                "content": chunk.content,
+                "relevance_score": score,
+                "metadata": getattr(chunk, "metadata_", {}) or {},
+            },
+        )
 
     latency_ms = int((time.time() - start_time) * 1000)
 
     return SearchServiceResponse(
         sources=sources,
         rewritten_queries=rewritten_queries,
-        search_latency_ms=latency_ms
+        search_latency_ms=latency_ms,
     )
 
 
@@ -76,7 +80,7 @@ async def get_knowledge_context(
     db: AsyncSession,
     query: str,
     user_id: UUID,
-    max_tokens: int = 2000
+    max_tokens: int = 2000,
 ) -> str:
     response = await search_knowledge(db, query, user_id, top_k=5, rewrite=False)
     if not response.sources:

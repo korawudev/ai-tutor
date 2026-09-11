@@ -2,20 +2,20 @@
 Covers success paths in gateway quiz/review/documents/feynman, jina_scraper,
 quiz_service, and document_service that existing tests miss.
 """
-import pytest
-import sys
-import os
-import types
+
 import json
-from uuid import uuid4, UUID
+import sys
+import types
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
-from fastapi.testclient import TestClient
+import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-
-ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _setup_knowledge_agent():
@@ -24,9 +24,9 @@ def _setup_knowledge_agent():
         if k == "app" or k.startswith("app."):
             del sys.modules[k]
     shared_pkg = types.ModuleType("shared")
-    shared_pkg.__path__ = [os.path.join(ROOT, "shared")]
+    shared_pkg.__path__ = [str(ROOT / "shared")]
     sys.modules["shared"] = shared_pkg
-    agent_app = os.path.join(ROOT, "knowledge-agent", "app")
+    agent_app = str(ROOT / "knowledge-agent" / "app")
     app_pkg = types.ModuleType("app")
     app_pkg.__path__ = [agent_app]
     sys.modules["app"] = app_pkg
@@ -35,12 +35,14 @@ def _setup_knowledge_agent():
 @pytest.fixture(autouse=True)
 def _patch_mastery_helpers():
     """Endpoint 测试只验证业务逻辑；掌握度/日统计落库走独立的 test_mastery.py。"""
-    with patch("gateway.app.api.quiz.upsert_mastery", new=AsyncMock()), \
-         patch("gateway.app.api.quiz.record_daily_stats", new=AsyncMock()), \
-         patch("gateway.app.api.review.upsert_mastery", new=AsyncMock()), \
-         patch("gateway.app.api.review.record_daily_stats", new=AsyncMock()), \
-         patch("gateway.app.api.feynman.upsert_mastery", new=AsyncMock()), \
-         patch("gateway.app.api.feynman.record_daily_stats", new=AsyncMock()):
+    with (
+        patch("gateway.app.api.quiz.upsert_mastery", new=AsyncMock()),
+        patch("gateway.app.api.quiz.record_daily_stats", new=AsyncMock()),
+        patch("gateway.app.api.review.upsert_mastery", new=AsyncMock()),
+        patch("gateway.app.api.review.record_daily_stats", new=AsyncMock()),
+        patch("gateway.app.api.feynman.upsert_mastery", new=AsyncMock()),
+        patch("gateway.app.api.feynman.record_daily_stats", new=AsyncMock()),
+    ):
         yield
 
 
@@ -52,19 +54,23 @@ class TestJinaScraper:
 
     def test_no_api_key(self):
         import asyncio
+
         _setup_knowledge_agent()
         import app.scrapers.jina_scraper as mod
+
         with patch.object(mod.settings, "JINA_API_KEY", ""):
             result = asyncio.run(
-                mod.scrape_with_jina("https://example.com")
+                mod.scrape_with_jina("https://example.com"),
             )
         assert result.success is False
         assert "not configured" in result.error
 
     def test_success_with_title(self):
         import asyncio
+
         _setup_knowledge_agent()
         import app.scrapers.jina_scraper as mod
+
         mock_resp = MagicMock()
         mock_resp.text = "# My Title\nSome content"
         mock_resp.raise_for_status = MagicMock()
@@ -72,10 +78,12 @@ class TestJinaScraper:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=mock_resp)
-        with patch.object(mod.settings, "JINA_API_KEY", "test-key"), \
-             patch("httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch.object(mod.settings, "JINA_API_KEY", "test-key"),
+            patch("httpx.AsyncClient", return_value=mock_client),
+        ):
             result = asyncio.run(
-                mod.scrape_with_jina("https://example.com")
+                mod.scrape_with_jina("https://example.com"),
             )
         assert result.success is True
         assert result.title == "My Title"
@@ -83,8 +91,10 @@ class TestJinaScraper:
 
     def test_success_no_title(self):
         import asyncio
+
         _setup_knowledge_agent()
         import app.scrapers.jina_scraper as mod
+
         mock_resp = MagicMock()
         mock_resp.text = "Just content, no title here"
         mock_resp.raise_for_status = MagicMock()
@@ -92,48 +102,60 @@ class TestJinaScraper:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=mock_resp)
-        with patch.object(mod.settings, "JINA_API_KEY", "test-key"), \
-             patch("httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch.object(mod.settings, "JINA_API_KEY", "test-key"),
+            patch("httpx.AsyncClient", return_value=mock_client),
+        ):
             result = asyncio.run(
-                mod.scrape_with_jina("https://example.com")
+                mod.scrape_with_jina("https://example.com"),
             )
         assert result.success is True
         assert result.title is None
 
     def test_http_status_error(self):
         import asyncio
+
         _setup_knowledge_agent()
         import app.scrapers.jina_scraper as mod
         import httpx
+
         mock_resp = MagicMock()
         mock_resp.status_code = 429
         mock_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-            message="rate limited", request=MagicMock(), response=mock_resp
+            message="rate limited",
+            request=MagicMock(),
+            response=mock_resp,
         )
         mock_client = MagicMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=mock_resp)
-        with patch.object(mod.settings, "JINA_API_KEY", "test-key"), \
-             patch("httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch.object(mod.settings, "JINA_API_KEY", "test-key"),
+            patch("httpx.AsyncClient", return_value=mock_client),
+        ):
             result = asyncio.run(
-                mod.scrape_with_jina("https://example.com")
+                mod.scrape_with_jina("https://example.com"),
             )
         assert result.success is False
         assert "429" in result.error
 
     def test_generic_exception(self):
         import asyncio
+
         _setup_knowledge_agent()
         import app.scrapers.jina_scraper as mod
+
         mock_client = MagicMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(side_effect=ConnectionError("timeout"))
-        with patch.object(mod.settings, "JINA_API_KEY", "test-key"), \
-             patch("httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch.object(mod.settings, "JINA_API_KEY", "test-key"),
+            patch("httpx.AsyncClient", return_value=mock_client),
+        ):
             result = asyncio.run(
-                mod.scrape_with_jina("https://example.com")
+                mod.scrape_with_jina("https://example.com"),
             )
         assert result.success is False
         assert "timeout" in result.error
@@ -147,14 +169,15 @@ class TestGatewayQuizSubmitSuccess:
 
     @pytest.fixture
     def client_and_deps(self, mock_db, user_id, valid_token):
-        from gateway.app.api.quiz import router
         from gateway.app.api.auth import get_user_id_dependency
+        from gateway.app.api.quiz import router
         from shared.database import get_db
 
         app = FastAPI()
 
         async def override_uid():
             return user_id
+
         async def override_db():
             yield mock_db
 
@@ -167,8 +190,22 @@ class TestGatewayQuizSubmitSuccess:
         client, mock_db, user_id, valid_token = client_and_deps
         quiz_id = uuid4()
         questions = [
-            {"id": "q1", "type": "choice", "question": "Q1", "options": {"A": "a", "B": "b"}, "answer": "A", "points": 20},
-            {"id": "q2", "type": "choice", "question": "Q2", "options": {"A": "a", "B": "b"}, "answer": "B", "points": 20},
+            {
+                "id": "q1",
+                "type": "choice",
+                "question": "Q1",
+                "options": {"A": "a", "B": "b"},
+                "answer": "A",
+                "points": 20,
+            },
+            {
+                "id": "q2",
+                "type": "choice",
+                "question": "Q2",
+                "options": {"A": "a", "B": "b"},
+                "answer": "B",
+                "points": 20,
+            },
         ]
         quiz = MagicMock()
         quiz.id = quiz_id
@@ -183,7 +220,7 @@ class TestGatewayQuizSubmitSuccess:
         resp = client.post(
             "/api/quiz/submit",
             json={"quiz_id": str(quiz_id), "answers": {"q1": "A", "q2": "B"}},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -197,9 +234,30 @@ class TestGatewayQuizSubmitSuccess:
         quiz_id = uuid4()
         # 3 questions, 2 correct → 66.7% → <0.7 → mastery_change=0.0
         questions = [
-            {"id": "q1", "type": "choice", "question": "Q1", "options": {"A": "a"}, "answer": "A", "points": 20},
-            {"id": "q2", "type": "choice", "question": "Q2", "options": {"A": "a"}, "answer": "B", "points": 20},
-            {"id": "q3", "type": "choice", "question": "Q3", "options": {"A": "a"}, "answer": "A", "points": 20},
+            {
+                "id": "q1",
+                "type": "choice",
+                "question": "Q1",
+                "options": {"A": "a"},
+                "answer": "A",
+                "points": 20,
+            },
+            {
+                "id": "q2",
+                "type": "choice",
+                "question": "Q2",
+                "options": {"A": "a"},
+                "answer": "B",
+                "points": 20,
+            },
+            {
+                "id": "q3",
+                "type": "choice",
+                "question": "Q3",
+                "options": {"A": "a"},
+                "answer": "A",
+                "points": 20,
+            },
         ]
         quiz = MagicMock()
         quiz.id = quiz_id
@@ -209,9 +267,10 @@ class TestGatewayQuizSubmitSuccess:
 
         added_objs = []
         mock_db.add.side_effect = lambda obj: added_objs.append(obj)
+
         async def fake_flush():
             for obj in added_objs:
-                if hasattr(obj, "id") and getattr(obj, "id") is None:
+                if hasattr(obj, "id") and obj.id is None:
                     obj.id = uuid4()
 
         mock_result = MagicMock()
@@ -222,7 +281,7 @@ class TestGatewayQuizSubmitSuccess:
         resp = client.post(
             "/api/quiz/submit",
             json={"quiz_id": str(quiz_id), "answers": {"q1": "A", "q2": "A", "q3": "A"}},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -237,8 +296,14 @@ class TestGatewayQuizSubmitSuccess:
         client, mock_db, user_id, valid_token = client_and_deps
         quiz_id = uuid4()
         questions = [
-            {"id": f"q{i}", "type": "choice", "question": f"Q{i}",
-             "options": {"A": "a"}, "answer": "A", "points": 10}
+            {
+                "id": f"q{i}",
+                "type": "choice",
+                "question": f"Q{i}",
+                "options": {"A": "a"},
+                "answer": "A",
+                "points": 10,
+            }
             for i in range(10)
         ]
         quiz = MagicMock()
@@ -249,9 +314,10 @@ class TestGatewayQuizSubmitSuccess:
 
         added_objs = []
         mock_db.add.side_effect = lambda obj: added_objs.append(obj)
+
         async def fake_flush():
             for obj in added_objs:
-                if hasattr(obj, "id") and getattr(obj, "id") is None:
+                if hasattr(obj, "id") and obj.id is None:
                     obj.id = uuid4()
 
         mock_result = MagicMock()
@@ -268,7 +334,7 @@ class TestGatewayQuizSubmitSuccess:
         resp = client.post(
             "/api/quiz/submit",
             json={"quiz_id": str(quiz_id), "answers": answers},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -288,7 +354,7 @@ class TestGatewayQuizSubmitSuccess:
 
         resp = client.post(
             f"/api/quiz/wrong-book/{wq_id}/mastered",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert wq.mastered is True
@@ -301,7 +367,7 @@ class TestGatewayQuizSubmitSuccess:
 
         resp = client.post(
             f"/api/quiz/wrong-book/{uuid4()}/mastered",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 404
 
@@ -314,14 +380,15 @@ class TestGatewayReviewSubmitSuccess:
 
     @pytest.fixture
     def client_and_deps(self, mock_db, user_id, valid_token):
-        from gateway.app.api.review import router
         from gateway.app.api.auth import get_user_id_dependency
+        from gateway.app.api.review import router
         from shared.database import get_db
 
         app = FastAPI()
 
         async def override_uid():
             return user_id
+
         async def override_db():
             yield mock_db
 
@@ -359,7 +426,7 @@ class TestGatewayReviewSubmitSuccess:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(schedule.id), "result": "good"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -378,7 +445,7 @@ class TestGatewayReviewSubmitSuccess:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(schedule.id), "result": "easy"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -395,7 +462,7 @@ class TestGatewayReviewSubmitSuccess:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(schedule.id), "result": "hard"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -412,7 +479,7 @@ class TestGatewayReviewSubmitSuccess:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(schedule.id), "result": "forgot"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -431,7 +498,7 @@ class TestGatewayReviewSubmitSuccess:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(schedule.id), "result": "easy"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -453,7 +520,7 @@ class TestGatewayReviewSubmitSuccess:
 
         resp = client.get(
             "/api/review/stats",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -476,7 +543,7 @@ class TestGatewayReviewSubmitSuccess:
 
         resp = client.get(
             "/api/review/pending?limit=5",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -492,14 +559,15 @@ class TestGatewayFeynmanSuccess:
 
     @pytest.fixture
     def client_and_deps(self, mock_db, user_id, valid_token):
-        from gateway.app.api.feynman import router
         from gateway.app.api.auth import get_user_id_dependency
+        from gateway.app.api.feynman import router
         from shared.database import get_db
 
         app = FastAPI()
 
         async def override_uid():
             return user_id
+
         async def override_db():
             yield mock_db
 
@@ -521,24 +589,47 @@ class TestGatewayFeynmanSuccess:
     def test_explain_success(self, client_and_deps):
         """Evaluate endpoint success path."""
         client, mock_db, user_id, valid_token = client_and_deps
-        mock_client = self._mock_httpx(200, {
-            "choices": [{"message": {"content":
-                '{"score": 75, "understanding": 80, "completeness": 70, "clarity": 75,'
-                ' "strengths": [], "weaknesses": [], "suggestions": []}'
-            }}]
-        })
+        mock_client = self._mock_httpx(
+            200,
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"score": 75, "understanding": 80, "completeness": 70, '
+                            '"clarity": 75,'
+                            ' "strengths": [], "weaknesses": [], "suggestions": []}',
+                        },
+                    },
+                ],
+            },
+        )
         mock_client.post.return_value.raise_for_status = MagicMock()
 
         # Set up mock_db for evaluate: thread query + runs query
-        from shared.models.thread import Thread as ThreadORM, Run as RunORM
         from datetime import datetime
 
-        thread_obj = ThreadORM(id=uuid4(), user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow())
-        run_obj = RunORM(id=uuid4(), thread_id=uuid4(), agent_type="feynman",
-            status="completed", input={"input": "test"}, output={"response": "test"},
-            created_at=datetime.utcnow())
+        from shared.models.thread import Run as RunORM
+        from shared.models.thread import Thread as ThreadORM
+
+        thread_obj = ThreadORM(
+            id=uuid4(),
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        run_obj = RunORM(
+            id=uuid4(),
+            thread_id=uuid4(),
+            agent_type="feynman",
+            status="completed",
+            input={"input": "test"},
+            output={"response": "test"},
+            created_at=datetime.utcnow(),
+        )
 
         thread_result = MagicMock()
         thread_result.scalar_one_or_none.return_value = thread_obj
@@ -550,7 +641,7 @@ class TestGatewayFeynmanSuccess:
             resp = client.post(
                 "/api/feynman/evaluate",
                 params={"thread_id": str(uuid4())},
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 200
         assert resp.json()["score"] == 75
@@ -559,21 +650,32 @@ class TestGatewayFeynmanSuccess:
         """Add-to-review endpoint success path."""
         client, mock_db, user_id, valid_token = client_and_deps
 
-        from shared.models.thread import Thread as ThreadORM
         from datetime import datetime
 
-        thread_obj = ThreadORM(id=uuid4(), user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        from shared.models.thread import Thread as ThreadORM
+
+        thread_obj = ThreadORM(
+            id=uuid4(),
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = thread_obj
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         resp = client.post(
             "/api/feynman/add-to-review",
-            json={"thread_id": str(uuid4()), "score": 40,
-                  "review_items": [{"topic": "TCP", "answer": "三次握手", "source": "feynman"}]},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            json={
+                "thread_id": str(uuid4()),
+                "score": 40,
+                "review_items": [{"topic": "TCP", "answer": "三次握手", "source": "feynman"}],
+            },
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert resp.json()["added"] == 1
@@ -584,15 +686,30 @@ class TestGatewayFeynmanSuccess:
         mock_client = self._mock_httpx(500, {"error": "timeout"})
         mock_client.post.return_value.raise_for_status = MagicMock(side_effect=Exception("500"))
 
-        from shared.models.thread import Thread as ThreadORM, Run as RunORM
         from datetime import datetime
 
-        thread_obj = ThreadORM(id=uuid4(), user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow())
-        run_obj = RunORM(id=uuid4(), thread_id=uuid4(), agent_type="feynman",
-            status="completed", input={"input": "test"}, output={"response": "test"},
-            created_at=datetime.utcnow())
+        from shared.models.thread import Run as RunORM
+        from shared.models.thread import Thread as ThreadORM
+
+        thread_obj = ThreadORM(
+            id=uuid4(),
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        run_obj = RunORM(
+            id=uuid4(),
+            thread_id=uuid4(),
+            agent_type="feynman",
+            status="completed",
+            input={"input": "test"},
+            output={"response": "test"},
+            created_at=datetime.utcnow(),
+        )
 
         thread_result = MagicMock()
         thread_result.scalar_one_or_none.return_value = thread_obj
@@ -604,7 +721,7 @@ class TestGatewayFeynmanSuccess:
             resp = client.post(
                 "/api/feynman/evaluate",
                 params={"thread_id": str(uuid4())},
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 500
 
@@ -612,12 +729,20 @@ class TestGatewayFeynmanSuccess:
         """Add-to-review with empty items → 400."""
         client, mock_db, user_id, valid_token = client_and_deps
 
-        from shared.models.thread import Thread as ThreadORM
         from datetime import datetime
 
-        thread_obj = ThreadORM(id=uuid4(), user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        from shared.models.thread import Thread as ThreadORM
+
+        thread_obj = ThreadORM(
+            id=uuid4(),
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = thread_obj
         mock_db.execute = AsyncMock(return_value=mock_result)
@@ -625,7 +750,7 @@ class TestGatewayFeynmanSuccess:
         resp = client.post(
             "/api/feynman/add-to-review",
             json={"thread_id": str(uuid4()), "score": 40, "review_items": []},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 400
 
@@ -638,8 +763,8 @@ class TestGatewayDocumentsSuccess:
 
     @pytest.fixture
     def client_and_deps(self, mock_db, user_id, valid_token):
-        from gateway.app.api.documents import router
         from gateway.app.api.auth import get_user_id_dependency
+        from gateway.app.api.documents import router
 
         app = FastAPI()
 
@@ -667,10 +792,15 @@ class TestGatewayDocumentsSuccess:
         client, user_id, valid_token = client_and_deps
         doc_id = uuid4()
         expected = {
-            "id": str(doc_id), "title": "Test Doc", "source_type": "text",
-            "source_url": None, "status": "completed", "tags": [],
-            "chunk_count": 1, "created_at": datetime.utcnow().isoformat(),
-            "processed_at": datetime.utcnow().isoformat()
+            "id": str(doc_id),
+            "title": "Test Doc",
+            "source_type": "text",
+            "source_url": None,
+            "status": "completed",
+            "tags": [],
+            "chunk_count": 1,
+            "created_at": datetime.utcnow().isoformat(),
+            "processed_at": datetime.utcnow().isoformat(),
         }
         mock_client = self._mock_httpx(201, expected)
 
@@ -678,7 +808,7 @@ class TestGatewayDocumentsSuccess:
             resp = client.post(
                 "/api/documents",
                 json={"title": "Test Doc", "source_type": "text", "content": "hello"},
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 201
 
@@ -690,7 +820,7 @@ class TestGatewayDocumentsSuccess:
             resp = client.post(
                 "/api/documents",
                 json={"title": "Test", "source_type": "text", "content": "x"},
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 500
 
@@ -701,7 +831,7 @@ class TestGatewayDocumentsSuccess:
         with patch("gateway.app.api.documents.httpx.AsyncClient", return_value=mock_client):
             resp = client.get(
                 "/api/documents?status=completed&tag=python&limit=5&offset=10",
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 200
 
@@ -712,24 +842,32 @@ class TestGatewayDocumentsSuccess:
         with patch("gateway.app.api.documents.httpx.AsyncClient", return_value=mock_client):
             resp = client.get(
                 "/api/documents",
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 500
 
     def test_get_document_success(self, client_and_deps):
         client, user_id, valid_token = client_and_deps
         doc_id = uuid4()
-        mock_client = self._mock_httpx(200, {
-            "id": str(doc_id), "title": "Doc", "source_type": "text",
-            "source_url": None, "status": "completed", "tags": [],
-            "chunk_count": 1, "created_at": datetime.utcnow().isoformat(),
-            "processed_at": None
-        })
+        mock_client = self._mock_httpx(
+            200,
+            {
+                "id": str(doc_id),
+                "title": "Doc",
+                "source_type": "text",
+                "source_url": None,
+                "status": "completed",
+                "tags": [],
+                "chunk_count": 1,
+                "created_at": datetime.utcnow().isoformat(),
+                "processed_at": None,
+            },
+        )
 
         with patch("gateway.app.api.documents.httpx.AsyncClient", return_value=mock_client):
             resp = client.get(
                 f"/api/documents/{doc_id}",
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 200
 
@@ -740,7 +878,7 @@ class TestGatewayDocumentsSuccess:
         with patch("gateway.app.api.documents.httpx.AsyncClient", return_value=mock_client):
             resp = client.get(
                 f"/api/documents/{uuid4()}",
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 404
 
@@ -751,7 +889,7 @@ class TestGatewayDocumentsSuccess:
         with patch("gateway.app.api.documents.httpx.AsyncClient", return_value=mock_client):
             resp = client.delete(
                 f"/api/documents/delete/{uuid4()}",
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 204
 
@@ -762,7 +900,7 @@ class TestGatewayDocumentsSuccess:
         with patch("gateway.app.api.documents.httpx.AsyncClient", return_value=mock_client):
             resp = client.delete(
                 f"/api/documents/delete/{uuid4()}",
-                headers={"Authorization": f"Bearer {valid_token}"}
+                headers={"Authorization": f"Bearer {valid_token}"},
             )
         assert resp.status_code == 500
 
@@ -775,14 +913,15 @@ class TestGatewayQuizGenerateSuccess:
 
     @pytest.fixture
     def client_and_deps(self, mock_db, user_id, valid_token):
-        from gateway.app.api.quiz import router
         from gateway.app.api.auth import get_user_id_dependency
+        from gateway.app.api.quiz import router
         from shared.database import get_db
 
         app = FastAPI()
 
         async def override_uid():
             return user_id
+
         async def override_db():
             yield mock_db
 
@@ -794,14 +933,25 @@ class TestGatewayQuizGenerateSuccess:
     @patch("gateway.app.api.quiz.llm_router")
     def test_generate_with_llm_success(self, mock_llm, client_and_deps):
         client, mock_db, user_id, valid_token = client_and_deps
-        mock_llm.chat = AsyncMock(return_value={
-            "content": json.dumps({
-                "questions": [
-                    {"id": "q1", "type": "choice", "question": "What is Python?",
-                     "options": {"A": "Language", "B": "Snake"}, "answer": "A", "topic": "Python", "points": 20}
-                ]
-            })
-        })
+        mock_llm.chat = AsyncMock(
+            return_value={
+                "content": json.dumps(
+                    {
+                        "questions": [
+                            {
+                                "id": "q1",
+                                "type": "choice",
+                                "question": "What is Python?",
+                                "options": {"A": "Language", "B": "Snake"},
+                                "answer": "A",
+                                "topic": "Python",
+                                "points": 20,
+                            },
+                        ],
+                    },
+                ),
+            },
+        )
 
         mock_result = MagicMock()
         mock_result.fetchall.return_value = []
@@ -810,12 +960,13 @@ class TestGatewayQuizGenerateSuccess:
         async def fake_refresh(obj):
             obj.id = uuid4()
             obj.created_at = datetime.utcnow()
+
         mock_db.refresh.side_effect = fake_refresh
 
         resp = client.post(
             "/api/quiz/generate",
             json={"scope": "topic", "topic": "Python", "question_count": 1},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -825,20 +976,32 @@ class TestGatewayQuizGenerateSuccess:
     def test_generate_with_topic_context(self, mock_llm, client_and_deps):
         """_get_knowledge_context with topic scope — covers lines 146-153."""
         client, mock_db, user_id, valid_token = client_and_deps
-        mock_llm.chat = AsyncMock(return_value={
-            "content": json.dumps({
-                "questions": [
-                    {"id": "q1", "type": "choice", "question": "Q?",
-                     "options": {"A": "a"}, "answer": "A", "topic": "T", "points": 20}
-                ]
-            })
-        })
+        mock_llm.chat = AsyncMock(
+            return_value={
+                "content": json.dumps(
+                    {
+                        "questions": [
+                            {
+                                "id": "q1",
+                                "type": "choice",
+                                "question": "Q?",
+                                "options": {"A": "a"},
+                                "answer": "A",
+                                "topic": "T",
+                                "points": 20,
+                            },
+                        ],
+                    },
+                ),
+            },
+        )
 
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [("Some knowledge about Python",)]
 
         def execute_side_effect(stmt, *a, **kw):
             from sqlalchemy.sql.selectable import Select
+
             if isinstance(stmt, Select) and ("quiz" in str(stmt) or "wrong_questions" in str(stmt)):
                 r = MagicMock()
                 r.fetchall.return_value = []
@@ -850,11 +1013,12 @@ class TestGatewayQuizGenerateSuccess:
         async def fake_refresh(obj):
             obj.id = uuid4()
             obj.created_at = datetime.utcnow()
+
         mock_db.refresh.side_effect = fake_refresh
 
         resp = client.post(
             "/api/quiz/generate",
             json={"scope": "topic", "topic": "Python"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200

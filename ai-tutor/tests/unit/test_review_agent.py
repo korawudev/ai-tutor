@@ -1,6 +1,4 @@
 """Unit tests for review-agent tools."""
-import pytest
-from datetime import datetime, timedelta
 
 
 class TestSpacedRepetition:

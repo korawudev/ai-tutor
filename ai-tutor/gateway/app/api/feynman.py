@@ -1,23 +1,25 @@
 """Gateway API - 费曼 API"""
+
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.models import Thread, Run, RunCreate, RunResponse, ReviewSchedule
 from shared.database import get_db
+from shared.models import ReviewSchedule, Run, Thread
+from shared.utils.mastery import record_daily_stats, upsert_mastery
 from shared.utils.schedule import compute_next_review_window
-from shared.utils.mastery import upsert_mastery, record_daily_stats
-from .auth import get_user_id_dependency
+
 from ..services import llm_client
-from pydantic import BaseModel
-from typing import Optional, List
+from .auth import get_user_id_dependency
 
 router = APIRouter(prefix="/api/feynman", tags=["feynman"])
 
-EVALUATE_PROMPT = """你是一位费曼学习法评估专家。请根据用户与导师的对话历史，评估用户对概念的理解程度。
+EVALUATE_PROMPT = """\
+你是一位费曼学习法评估专家。请根据用户与导师的对话历史，评估用户对概念的理解程度。
 
 评估维度：
 1. 理解深度 (0-100)：概念是否理解正确
@@ -34,7 +36,8 @@ EVALUATE_PROMPT = """你是一位费曼学习法评估专家。请根据用户�
     "weaknesses": ["用户遗漏了..."],
     "suggestions": ["建议复习..."],
     "review_points": [
-        {"problem": "用户尚未完全掌握的知识点问题，例如：什么是过拟合？", "answer": "该知识点的参考答案/正确解释，用于复习时对照"}
+        {"problem": "用户尚未完全掌握的知识点问题，例如：什么是过拟合？", \
+"answer": "该知识点的参考答案/正确解释，用于复习时对照"}
     ]
 }
 
@@ -51,19 +54,20 @@ review_points 的说明：
 async def evaluate_conversation(
     thread_id: UUID,
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """评估费曼学习对话掌握度"""
     result = await db.execute(
-        select(Thread).where(Thread.id == thread_id, Thread.user_id == user_id)
+        select(Thread).where(Thread.id == thread_id, Thread.user_id == user_id),
     )
     thread = result.scalar_one_or_none()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
 
     history_result = await db.execute(
-        select(Run).where(Run.thread_id == thread_id, Run.status == "completed")
-        .order_by(Run.created_at.asc())
+        select(Run)
+        .where(Run.thread_id == thread_id, Run.status == "completed")
+        .order_by(Run.created_at.asc()),
     )
     runs = list(history_result.scalars().all())
 
@@ -80,7 +84,7 @@ async def evaluate_conversation(
     try:
         evaluation = llm_client.chat_json(
             EVALUATE_PROMPT,
-            "请评估以下费曼学习对话：\n\n" + "\n".join(conversation)
+            "请评估以下费曼学习对话：\n\n" + "\n".join(conversation),
         )
 
         evaluation.setdefault("score", 60)
@@ -95,30 +99,30 @@ async def evaluate_conversation(
         return evaluation
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)[:200]}")
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)[:200]}") from e
 
 
 class ReviewItem(BaseModel):
     topic: str
-    answer: Optional[str] = None
-    source: Optional[str] = "feynman"
+    answer: str | None = None
+    source: str | None = "feynman"
 
 
 class AddToReviewRequest(BaseModel):
     thread_id: UUID
     score: float
-    review_items: List[ReviewItem]
+    review_items: list[ReviewItem]
 
 
 @router.post("/add-to-review")
 async def add_to_review(
     data: AddToReviewRequest,
     user_id: UUID = Depends(get_user_id_dependency),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """添加到复习计划（直接写入 gateway 数据库的 review_schedule 表）"""
     result = await db.execute(
-        select(Thread).where(Thread.id == data.thread_id, Thread.user_id == user_id)
+        select(Thread).where(Thread.id == data.thread_id, Thread.user_id == user_id),
     )
     thread = result.scalar_one_or_none()
     if not thread:
@@ -145,7 +149,7 @@ async def add_to_review(
             ease_factor=initial_ease,
             review_count=0,
             mastery_score=float(data.score),
-            status="active"
+            status="active",
         )
         db.add(schedule)
         created.append(schedule)
@@ -156,7 +160,9 @@ async def add_to_review(
 
     for item in data.review_items:
         await upsert_mastery(
-            db, user_id, item.topic.strip(),
+            db,
+            user_id,
+            item.topic.strip(),
             feynman_score=float(data.score),
         )
     await record_daily_stats(db, user_id, feynman_sessions=1, feynman_avg_score=float(data.score))
@@ -167,15 +173,20 @@ async def add_to_review(
         "score": data.score,
         "added": len(created),
         "items": [
-            {"schedule_id": str(s.id), "topic": s.topic, "answer": s.answer, "next_review": s.next_review.isoformat()}
+            {
+                "schedule_id": str(s.id),
+                "topic": s.topic,
+                "answer": s.answer,
+                "next_review": s.next_review.isoformat(),
+            }
             for s in created
-        ]
+        ],
     }
 
 
 class FeynmanStart(BaseModel):
     topic: str
-    knowledge_context: Optional[str] = None
+    knowledge_context: str | None = None
 
 
 class FeynmanExplain(BaseModel):

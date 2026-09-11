@@ -1,10 +1,10 @@
 """数据模型 - Quiz & WrongQuestion"""
+
 from datetime import datetime
-from typing import Optional, List, Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
-from sqlalchemy import Column, String, DateTime, JSON, Text, Integer, ForeignKey, Numeric, Boolean
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from .user import Base
@@ -12,6 +12,7 @@ from .user import Base
 
 class Quiz(Base):
     """测验模型"""
+
     __tablename__ = "quizzes"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -34,6 +35,7 @@ class Quiz(Base):
 
 class WrongQuestion(Base):
     """错题模型"""
+
     __tablename__ = "wrong_questions"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -54,28 +56,31 @@ class WrongQuestion(Base):
 # Pydantic Schemas
 class QuizGenerate(BaseModel):
     """生成测验请求"""
+
     scope: str  # topic, time_range, wrong_review
-    topic: Optional[str] = None
-    time_range: Optional[dict] = None
+    topic: str | None = None
+    time_range: dict | None = None
     question_count: int = 5
     difficulty: str = "medium"
 
 
 class QuizQuestion(BaseModel):
     """测验题目"""
+
     id: str
     type: str  # choice, short_answer, concept_analysis
     question: str
-    options: Optional[dict] = None  # 选择题选项
+    options: dict | None = None  # 选择题选项
     topic: str
 
 
 class QuizResponse(BaseModel):
     """测验响应"""
+
     id: UUID
     scope: str
-    topic: Optional[str] = None
-    questions: List[QuizQuestion]
+    topic: str | None = None
+    questions: list[QuizQuestion]
     total_questions: int
     status: str
     created_at: datetime
@@ -85,51 +90,57 @@ class QuizResponse(BaseModel):
 
 class QuizSubmit(BaseModel):
     """提交测验答案"""
+
     quiz_id: UUID
     answers: dict  # {question_id: answer}
 
 
 class SuggestedReview(BaseModel):
     """加入复习计划建议项"""
+
     wrong_id: UUID
     question: dict
-    user_answer: Optional[str] = None
-    correct_answer: Optional[str] = None
-    explanation: Optional[str] = None
+    user_answer: str | None = None
+    correct_answer: str | None = None
+    explanation: str | None = None
 
 
 class QuizResult(BaseModel):
     """测验结果"""
+
     quiz_id: UUID
     score: float
     total_questions: int
     correct_count: int
-    results: List[dict]  # 每题结果
-    wrong_questions: List[dict]
-    suggested_reviews: List[SuggestedReview] = []
+    results: list[dict]  # 每题结果
+    wrong_questions: list[dict]
+    suggested_reviews: list[SuggestedReview] = []
     mastery_change: float
     time_spent_seconds: int
 
 
 class AddToReviewRequest(BaseModel):
     """将错题加入复习计划"""
-    wrong_ids: List[UUID]
+
+    wrong_ids: list[UUID]
 
 
 class AddToReviewResponse(BaseModel):
     """加入复习计划结果"""
+
     added: int
     skipped: int
-    items: List[dict]
+    items: list[dict]
 
 
 class WrongQuestionResponse(BaseModel):
     """错题响应"""
+
     id: UUID
     question: dict
-    user_answer: Optional[str] = None
-    correct_answer: Optional[str] = None
-    explanation: Optional[str] = None
+    user_answer: str | None = None
+    correct_answer: str | None = None
+    explanation: str | None = None
     review_count: int
     mastered: bool
     in_review: bool = False  # 是否已在复习计划中（source=quiz 的 active 计划）

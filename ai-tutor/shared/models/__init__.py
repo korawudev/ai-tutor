@@ -1,45 +1,132 @@
 """数据模型"""
-from .user import Base, User, UserCreate, UserResponse, UserLogin, Token
+
 from .document import (
-    Document, Chunk, ImportBatch,
-    DocumentCreate, DocumentImport, DocumentResponse,
-    DuplicateDetected, ImportResult
+    Chunk,
+    Document,
+    DocumentCreate,
+    DocumentImport,
+    DocumentResponse,
+    DuplicateDetected,
+    ImportBatch,
+    ImportResult,
 )
-from .thread import Thread, Run, ThreadCreate, ThreadResponse, RunCreate, RunResponse, HITLResume, SSEEvent
-from .quiz import Quiz, WrongQuestion, QuizGenerate, QuizQuestion, QuizResponse, QuizSubmit, QuizResult, WrongQuestionResponse, SuggestedReview, AddToReviewRequest, AddToReviewResponse
+from .feynman import FeynmanEvaluate, FeynmanExplain, FeynmanResponse, FeynmanSession, FeynmanStart
+from .mastery import LearningStats, MasteryRecord
+from .quiz import (
+    AddToReviewRequest,
+    AddToReviewResponse,
+    Quiz,
+    QuizGenerate,
+    QuizQuestion,
+    QuizResponse,
+    QuizResult,
+    QuizSubmit,
+    SuggestedReview,
+    WrongQuestion,
+    WrongQuestionResponse,
+)
 from .review import (
-    ReviewSchedule, ReviewLog, ReviewItem, ReviewSubmit, ReviewResult, ReviewListResponse,
-    NormalReviewAnswer, NormalReviewSubmit, NormalReviewResponse,
-    SessionRetrySubmit, VerificationSubmit, VerificationFailedSubmit, VerificationResponse,
-    VerificationLog, ReviewBatchStats,
-    FeynmanVerifySubmit, FeynmanVerifyResponse, SessionSnapshot, BatchCompleteSubmit
+    BatchCompleteSubmit,
+    FeynmanVerifyResponse,
+    FeynmanVerifySubmit,
+    NormalReviewAnswer,
+    NormalReviewResponse,
+    NormalReviewSubmit,
+    ReviewBatchStats,
+    ReviewItem,
+    ReviewListResponse,
+    ReviewLog,
+    ReviewResult,
+    ReviewSchedule,
+    ReviewSubmit,
+    SessionRetrySubmit,
+    SessionSnapshot,
+    VerificationFailedSubmit,
+    VerificationLog,
+    VerificationResponse,
+    VerificationSubmit,
 )
-from .feynman import FeynmanSession, FeynmanStart, FeynmanExplain, FeynmanResponse, FeynmanEvaluate
-from .mastery import MasteryRecord, LearningStats
 from .search import SearchResponse, SearchResult
+from .thread import (
+    HITLResume,
+    Run,
+    RunCreate,
+    RunResponse,
+    SSEEvent,
+    Thread,
+    ThreadCreate,
+    ThreadResponse,
+)
+from .user import Base, Token, User, UserCreate, UserLogin, UserResponse
 
 __all__ = [
     # User
-    "Base", "User", "UserCreate", "UserResponse", "UserLogin", "Token",
+    "Base",
+    "User",
+    "UserCreate",
+    "UserResponse",
+    "UserLogin",
+    "Token",
     # Document
-    "Document", "Chunk", "ImportBatch",
-    "DocumentCreate", "DocumentImport", "DocumentResponse",
-    "DuplicateDetected", "ImportResult",
+    "Document",
+    "Chunk",
+    "ImportBatch",
+    "DocumentCreate",
+    "DocumentImport",
+    "DocumentResponse",
+    "DuplicateDetected",
+    "ImportResult",
     # Thread
-    "Thread", "Run", "ThreadCreate", "ThreadResponse", "RunCreate", "RunResponse", "HITLResume", "SSEEvent",
+    "Thread",
+    "Run",
+    "ThreadCreate",
+    "ThreadResponse",
+    "RunCreate",
+    "RunResponse",
+    "HITLResume",
+    "SSEEvent",
     # Quiz
-    "Quiz", "WrongQuestion", "QuizGenerate", "QuizQuestion", "QuizResponse", "QuizSubmit", "QuizResult", "WrongQuestionResponse",
-    "SuggestedReview", "AddToReviewRequest", "AddToReviewResponse",
+    "Quiz",
+    "WrongQuestion",
+    "QuizGenerate",
+    "QuizQuestion",
+    "QuizResponse",
+    "QuizSubmit",
+    "QuizResult",
+    "WrongQuestionResponse",
+    "SuggestedReview",
+    "AddToReviewRequest",
+    "AddToReviewResponse",
     # Review
-    "ReviewSchedule", "ReviewLog", "ReviewItem", "ReviewSubmit", "ReviewResult", "ReviewListResponse",
-    "NormalReviewAnswer", "NormalReviewSubmit", "NormalReviewResponse",
-    "SessionRetrySubmit", "VerificationSubmit", "VerificationFailedSubmit", "VerificationResponse",
-    "VerificationLog", "ReviewBatchStats",
-    "FeynmanVerifySubmit", "FeynmanVerifyResponse", "SessionSnapshot", "BatchCompleteSubmit",
+    "ReviewSchedule",
+    "ReviewLog",
+    "ReviewItem",
+    "ReviewSubmit",
+    "ReviewResult",
+    "ReviewListResponse",
+    "NormalReviewAnswer",
+    "NormalReviewSubmit",
+    "NormalReviewResponse",
+    "SessionRetrySubmit",
+    "VerificationSubmit",
+    "VerificationFailedSubmit",
+    "VerificationResponse",
+    "VerificationLog",
+    "ReviewBatchStats",
+    "FeynmanVerifySubmit",
+    "FeynmanVerifyResponse",
+    "SessionSnapshot",
+    "BatchCompleteSubmit",
     # Feynman
-    "FeynmanSession", "FeynmanStart", "FeynmanExplain", "FeynmanResponse", "FeynmanEvaluate",
+    "FeynmanSession",
+    "FeynmanStart",
+    "FeynmanExplain",
+    "FeynmanResponse",
+    "FeynmanEvaluate",
     # Mastery
-    "MasteryRecord", "LearningStats",
+    "MasteryRecord",
+    "LearningStats",
     # Search
-    "SearchResponse", "SearchResult",
+    "SearchResponse",
+    "SearchResult",
 ]

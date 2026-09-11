@@ -1,10 +1,12 @@
 """Unit-level test fixtures with agent module switching."""
+
 import sys
-import os
 import types
+from pathlib import Path
+
 import pytest
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _clean_app_modules():
@@ -16,14 +18,14 @@ def _clean_app_modules():
 def _ensure_shared():
     if "shared" not in sys.modules:
         shared_pkg = types.ModuleType("shared")
-        shared_pkg.__path__ = [os.path.join(ROOT, "shared")]
+        shared_pkg.__path__ = [str(ROOT / "shared")]
         sys.modules["shared"] = shared_pkg
 
 
 def _setup_agent(agent_name):
     _clean_app_modules()
     _ensure_shared()
-    agent_app = os.path.join(ROOT, agent_name, "app")
+    agent_app = str(ROOT / agent_name / "app")
     app_pkg = types.ModuleType("app")
     app_pkg.__path__ = [agent_app]
     sys.modules["app"] = app_pkg
@@ -32,10 +34,10 @@ def _setup_agent(agent_name):
 @pytest.fixture
 def knowledge_modules():
     _setup_agent("knowledge-agent")
-    from app.tools.parse_document import parse_document, ParsedDocument
-    from app.tools.chunk_document import chunk_document, Chunk
-    from app.tools.embed_document import embed_chunks, embed_single, EmbeddingResult
-    from app.tools.fetch_document import fetch_document, FetchResult
+    from app.tools.chunk_document import Chunk, chunk_document
+    from app.tools.embed_document import EmbeddingResult, embed_chunks, embed_single
+    from app.tools.fetch_document import FetchResult, fetch_document
+    from app.tools.parse_document import ParsedDocument, parse_document
 
     return types.SimpleNamespace(
         parse_document=parse_document,
@@ -53,8 +55,8 @@ def knowledge_modules():
 @pytest.fixture
 def rag_modules():
     _setup_agent("rag-agent")
-    from app.tools.query_rewriter import rewrite_query, RewrittenQuery
-    from app.tools.reranker import rerank, RerankedResult
+    from app.tools.query_rewriter import RewrittenQuery, rewrite_query
+    from app.tools.reranker import RerankedResult, rerank
 
     return types.SimpleNamespace(
         rewrite_query=rewrite_query,
@@ -67,8 +69,8 @@ def rag_modules():
 @pytest.fixture
 def quiz_modules():
     _setup_agent("quiz-agent")
-    from app.tools.generate_questions import generate_questions, GeneratedQuestion
-    from app.tools.grade_answer import grade_answer, GradeResult
+    from app.tools.generate_questions import GeneratedQuestion, generate_questions
+    from app.tools.grade_answer import GradeResult, grade_answer
     from app.tools.manage_wrong_book import add_wrong_question, get_wrong_questions
 
     return types.SimpleNamespace(
@@ -85,10 +87,10 @@ def quiz_modules():
 def review_modules():
     _setup_agent("review-agent")
     from app.tools.spaced_repetition import (
+        SpacedRepetitionResult,
+        calculate_mastery_score,
         calculate_next_review,
         get_initial_interval,
-        calculate_mastery_score,
-        SpacedRepetitionResult,
     )
 
     return types.SimpleNamespace(
@@ -127,10 +129,10 @@ def feynman_modules():
 def review_schedule_modules():
     _setup_agent("review-agent")
     from app.tools.schedule_manager import (
-        get_pending_reviews,
         create_review_schedule,
-        submit_review_result,
+        get_pending_reviews,
         get_review_stats,
+        submit_review_result,
     )
 
     return types.SimpleNamespace(
@@ -147,8 +149,8 @@ def quiz_wrong_book_modules():
     from app.tools.manage_wrong_book import (
         add_wrong_question,
         get_wrong_questions,
-        mark_mastered,
         increment_review_count,
+        mark_mastered,
     )
 
     return types.SimpleNamespace(
@@ -162,9 +164,9 @@ def quiz_wrong_book_modules():
 @pytest.fixture
 def rag_search_modules():
     _setup_agent("rag-agent")
-    from app.tools.hybrid_search import hybrid_search, extract_keywords, SearchResult
-    from app.tools.vector_store import search_similar, search_by_keywords
-    from app.tools.reranker import rerank, RerankedResult
+    from app.tools.hybrid_search import SearchResult, extract_keywords, hybrid_search
+    from app.tools.reranker import RerankedResult, rerank
+    from app.tools.vector_store import search_by_keywords, search_similar
 
     return types.SimpleNamespace(
         hybrid_search=hybrid_search,
@@ -181,9 +183,9 @@ def rag_search_modules():
 def knowledge_service_modules():
     _setup_agent("knowledge-agent")
     from app.services.document_service import (
+        batch_import,
         check_duplicate,
         process_document,
-        batch_import,
     )
 
     return types.SimpleNamespace(
@@ -197,10 +199,10 @@ def knowledge_service_modules():
 def quiz_service_modules():
     _setup_agent("quiz-agent")
     from app.services.quiz_service import (
+        _calculate_mastery_change,
+        _get_knowledge_context,
         generate_quiz,
         submit_answer,
-        _get_knowledge_context,
-        _calculate_mastery_change,
     )
 
     return types.SimpleNamespace(
@@ -215,9 +217,9 @@ def quiz_service_modules():
 def rag_service_modules():
     _setup_agent("rag-agent")
     from app.services.search_service import (
-        search_knowledge,
-        get_knowledge_context,
         SearchServiceResponse,
+        get_knowledge_context,
+        search_knowledge,
     )
 
     return types.SimpleNamespace(

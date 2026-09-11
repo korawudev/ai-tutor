@@ -1,14 +1,15 @@
 """Unit tests for gateway review API."""
-import pytest
-from uuid import uuid4
+
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
-from fastapi.testclient import TestClient
+import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from gateway.app.api.review import router
 from gateway.app.api.auth import get_user_id_dependency
+from gateway.app.api.review import router
 from shared.database import get_db
 
 
@@ -35,8 +36,10 @@ def client(app):
 
 @pytest.fixture(autouse=True)
 def _patch_mastery_helpers():
-    with patch("gateway.app.api.review.upsert_mastery", new=AsyncMock()), \
-         patch("gateway.app.api.review.record_daily_stats", new=AsyncMock()):
+    with (
+        patch("gateway.app.api.review.upsert_mastery", new=AsyncMock()),
+        patch("gateway.app.api.review.record_daily_stats", new=AsyncMock()),
+    ):
         yield
 
 
@@ -56,7 +59,7 @@ class TestReviewPending:
 
         resp = client.get(
             "/api/review/pending",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -64,10 +67,19 @@ class TestReviewPending:
 
     def test_pending_returns_answer(self, client, mock_db, valid_token):
         from shared.models import ReviewSchedule
+
         s = ReviewSchedule(
-            id=uuid4(), chunk_id=None, topic="Python 列表", answer="正确答案: []\n解析: 列表字面量",
-            mastery_score=10.0, next_review=datetime.utcnow(), interval_days=1.0,
-            review_count=0, status="active", source="quiz", reason="wrong",
+            id=uuid4(),
+            chunk_id=None,
+            topic="Python 列表",
+            answer="正确答案: []\n解析: 列表字面量",
+            mastery_score=10.0,
+            next_review=datetime.utcnow(),
+            interval_days=1.0,
+            review_count=0,
+            status="active",
+            source="quiz",
+            reason="wrong",
         )
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [s]
@@ -75,7 +87,7 @@ class TestReviewPending:
 
         resp = client.get(
             "/api/review/pending",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -90,9 +102,13 @@ class TestReviewSubmit:
         app = FastAPI()
         app.include_router(router)
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.post("/api/review/submit", json={
-            "schedule_id": str(uuid4()), "result": "good"
-        })
+        resp = client.post(
+            "/api/review/submit",
+            json={
+                "schedule_id": str(uuid4()),
+                "result": "good",
+            },
+        )
         assert resp.status_code == 401
 
     def test_submit_not_found(self, client, mock_db, valid_token):
@@ -103,18 +119,28 @@ class TestReviewSubmit:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(uuid4()), "result": "good"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 404
 
     def test_submit_schedules_next_review_in_future(self, client, mock_db, valid_token, user_id):
         """复习提交后 next_review 应按新间隔推迟，而不是立即到期"""
         from shared.models import ReviewSchedule
+
         s = ReviewSchedule(
-            id=uuid4(), chunk_id=None, user_id=user_id, topic="T",
-            answer=None, mastery_score=50.0, next_review=datetime.utcnow() - timedelta(days=1),
-            interval_days=1.0, ease_factor=2.5, review_count=0,
-            status="active", source="quiz", reason="wrong",
+            id=uuid4(),
+            chunk_id=None,
+            user_id=user_id,
+            topic="T",
+            answer=None,
+            mastery_score=50.0,
+            next_review=datetime.utcnow() - timedelta(days=1),
+            interval_days=1.0,
+            ease_factor=2.5,
+            review_count=0,
+            status="active",
+            source="quiz",
+            reason="wrong",
         )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = s
@@ -126,7 +152,7 @@ class TestReviewSubmit:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(s.id), "result": "good"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert s.next_review > before
@@ -139,11 +165,21 @@ class TestReviewSubmit:
     def test_submit_forgot_resets_interval(self, client, mock_db, valid_token, user_id):
         """记错了(forgot) 等价于直接回答忘记: 间隔重置为 1 天"""
         from shared.models import ReviewSchedule
+
         s = ReviewSchedule(
-            id=uuid4(), chunk_id=None, user_id=user_id, topic="T",
-            answer=None, mastery_score=50.0, next_review=datetime.utcnow() - timedelta(days=1),
-            interval_days=5.0, ease_factor=2.5, review_count=1,
-            status="active", source="quiz", reason="wrong",
+            id=uuid4(),
+            chunk_id=None,
+            user_id=user_id,
+            topic="T",
+            answer=None,
+            mastery_score=50.0,
+            next_review=datetime.utcnow() - timedelta(days=1),
+            interval_days=5.0,
+            ease_factor=2.5,
+            review_count=1,
+            status="active",
+            source="quiz",
+            reason="wrong",
         )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = s
@@ -154,7 +190,7 @@ class TestReviewSubmit:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(s.id), "result": "forgot"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert float(s.interval_days) == 1.0
@@ -166,12 +202,23 @@ class TestReviewSubmit:
     def test_submit_with_decimal_values_ok(self, client, mock_db, valid_token, user_id):
         """DB 返回的 Numeric 列是 Decimal，记录日志时必须能兼容(线上 bug 回归)"""
         from decimal import Decimal
+
         from shared.models import ReviewSchedule
+
         s = ReviewSchedule(
-            id=uuid4(), chunk_id=None, user_id=user_id, topic="T",
-            answer=None, mastery_score=Decimal("50.00"), next_review=datetime.utcnow() - timedelta(days=1),
-            interval_days=Decimal("1.00"), ease_factor=Decimal("2.50"), review_count=0,
-            status="active", source="quiz", reason="wrong",
+            id=uuid4(),
+            chunk_id=None,
+            user_id=user_id,
+            topic="T",
+            answer=None,
+            mastery_score=Decimal("50.00"),
+            next_review=datetime.utcnow() - timedelta(days=1),
+            interval_days=Decimal("1.00"),
+            ease_factor=Decimal("2.50"),
+            review_count=0,
+            status="active",
+            source="quiz",
+            reason="wrong",
         )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = s
@@ -182,7 +229,7 @@ class TestReviewSubmit:
         resp = client.post(
             "/api/review/submit",
             json={"schedule_id": str(s.id), "result": "good"},
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert float(s.interval_days) == 2.5
@@ -205,7 +252,7 @@ class TestReviewStats:
 
         resp = client.get(
             "/api/review/stats",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -228,16 +275,24 @@ class TestArchiveReview:
 
         resp = client.post(
             f"/api/review/{uuid4()}/archive",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 404
 
     def test_archive_sets_paused(self, client, mock_db, valid_token):
         from shared.models import ReviewSchedule
+
         s = ReviewSchedule(
-            id=uuid4(), chunk_id=None, topic="Python 列表",
-            mastery_score=10.0, next_review=datetime.utcnow(), interval_days=1.0,
-            review_count=0, status="active", source="quiz", reason="wrong",
+            id=uuid4(),
+            chunk_id=None,
+            topic="Python 列表",
+            mastery_score=10.0,
+            next_review=datetime.utcnow(),
+            interval_days=1.0,
+            review_count=0,
+            status="active",
+            source="quiz",
+            reason="wrong",
         )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = s
@@ -245,7 +300,7 @@ class TestArchiveReview:
 
         resp = client.post(
             f"/api/review/{s.id}/archive",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert s.status == "paused"

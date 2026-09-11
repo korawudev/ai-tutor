@@ -1,11 +1,11 @@
 """数据模型 - Review"""
+
 from datetime import datetime
-from typing import Optional
-from uuid import UUID, uuid4
 from enum import Enum
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel
-from sqlalchemy import Column, String, DateTime, JSON, Text, ForeignKey, Numeric, Integer
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from .user import Base
@@ -13,13 +13,15 @@ from .user import Base
 
 class NormalReviewAnswer(str, Enum):
     """正式复习作答选项（前端3级映射后端5级）"""
-    MASTERED = "mastered"      # 认识 -> quality 5
-    VAGUE = "vague"            # 模糊 -> quality 3
-    FORGOTTEN = "forgotten"    # 不认识 -> quality 0
+
+    MASTERED = "mastered"  # 认识 -> quality 5
+    VAGUE = "vague"  # 模糊 -> quality 3
+    FORGOTTEN = "forgotten"  # 不认识 -> quality 0
 
 
 class ReviewSchedule(Base):
     """复习调度模型"""
+
     __tablename__ = "review_schedule"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -35,9 +37,9 @@ class ReviewSchedule(Base):
     ease_factor = Column(Numeric(5, 2), default=2.5)
     review_count = Column(Integer, default=0)
     mastery_score = Column(Numeric(5, 2), default=0.0)
-    correct_streak = Column(Integer, default=0)      # 连续正式答对计数
+    correct_streak = Column(Integer, default=0)  # 连续正式答对计数
     last_normal_answer = Column(String(20), nullable=True)  # mastered/vague/forgotten
-    is_mastered = Column(Integer, default=0)         # 0/1 标记是否毕业
+    is_mastered = Column(Integer, default=0)  # 0/1 标记是否毕业
     status = Column(String(20), default="active", index=True)  # active, paused, mastered
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -45,13 +47,17 @@ class ReviewSchedule(Base):
 
 class ReviewLog(Base):
     """复习日志模型"""
+
     __tablename__ = "review_logs"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     schedule_id = Column(PG_UUID(as_uuid=True), ForeignKey("review_schedule.id"), nullable=False)
     chunk_id = Column(PG_UUID(as_uuid=True), ForeignKey("chunks.id"), nullable=True)
-    result = Column(String(20), nullable=False)  # easy, good, hard, forgot / mastered/vague/forgotten
+    result = Column(
+        String(20),
+        nullable=False,
+    )  # easy, good, hard, forgot / mastered/vague/forgotten
     old_interval = Column(Numeric(10, 2), nullable=True)
     new_interval = Column(Numeric(10, 2), nullable=True)
     ease_factor_change = Column(Numeric(5, 2), nullable=True)
@@ -60,13 +66,17 @@ class ReviewLog(Base):
     old_mastery_score = Column(Numeric(5, 2), nullable=True)
     new_mastery_score = Column(Numeric(5, 2), nullable=True)
     correct_streak = Column(Integer, nullable=True)
-    answer_type = Column(String(20), default="normal_review")  # normal_review / session_retry / verification
+    answer_type = Column(
+        String(20),
+        default="normal_review",
+    )  # normal_review / session_retry / verification
     response_time_ms = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 
 class VerificationLog(Base):
     """组后验证日志"""
+
     __tablename__ = "verification_logs"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -82,6 +92,7 @@ class VerificationLog(Base):
 
 class ReviewBatchStats(Base):
     """复习组完成统计（基础埋点，v1.0 只写不读）"""
+
     __tablename__ = "review_batch_stats"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -98,6 +109,7 @@ class ReviewBatchStats(Base):
 # Pydantic Schemas
 class NormalReviewSubmit(BaseModel):
     """正式复习提交（前端3级映射）"""
+
     schedule_id: UUID
     answer: NormalReviewAnswer  # mastered / vague / forgotten
     response_time_ms: int = 0
@@ -105,19 +117,21 @@ class NormalReviewSubmit(BaseModel):
 
 class NormalReviewResponse(BaseModel):
     """正式复习响应"""
+
     schedule_id: UUID
-    chunk_id: Optional[UUID] = None
+    chunk_id: UUID | None = None
     next_review_time: datetime
     ease_factor: float
     correct_streak: int
     is_mastered: bool
     need_session_retry: bool = False
-    retry_reason: Optional[str] = None  # "vague" | "forgotten"
-    mastery_change: Optional[dict] = None  # {"old": 65, "new": 58, "delta": -7}
+    retry_reason: str | None = None  # "vague" | "forgotten"
+    mastery_change: dict | None = None  # {"old": 65, "new": 58, "delta": -7}
 
 
 class SessionRetrySubmit(BaseModel):
     """会话重试提交（仅用于日志记录，可选）"""
+
     schedule_id: UUID
     chunk_id: UUID
     answer: NormalReviewAnswer
@@ -126,52 +140,58 @@ class SessionRetrySubmit(BaseModel):
 
 class VerificationSubmit(BaseModel):
     """验证提交"""
+
     chunk_id: UUID
-    schedule_id: Optional[UUID] = None
+    schedule_id: UUID | None = None
     verification_type: str  # feynman, concept, code, keyword
     user_answer: str
 
 
 class VerificationFailedSubmit(BaseModel):
     """组后验证失败提交（轻降难度，不重置间隔）"""
-    chunk_id: Optional[UUID] = None
-    schedule_id: Optional[UUID] = None
+
+    chunk_id: UUID | None = None
+    schedule_id: UUID | None = None
     response_time_ms: int = 0
 
 
 class VerificationResponse(BaseModel):
     """验证响应"""
+
     passed: bool
-    ai_score: Optional[float] = None
-    feedback: Optional[str] = None
+    ai_score: float | None = None
+    feedback: str | None = None
     need_retry: bool = False
 
 
 class ReviewItem(BaseModel):
     """复习项目"""
+
     schedule_id: UUID
-    chunk_id: Optional[UUID] = None
+    chunk_id: UUID | None = None
     topic: str
-    answer: Optional[str] = None
+    answer: str | None = None
     mastery_score: float
     next_review: datetime
     interval_days: float
     review_count: int
     status: str
-    source: Optional[str] = None
-    reason: Optional[str] = None
+    source: str | None = None
+    reason: str | None = None
     is_mastered: bool = False
     correct_streak: int = 0
 
 
 class ReviewSubmit(BaseModel):
     """提交复习结果（兼容旧版本）"""
+
     schedule_id: UUID
     result: str  # easy, good, hard, forgot
 
 
 class ReviewResult(BaseModel):
     """复习结果"""
+
     schedule_id: UUID
     old_interval: float
     new_interval: float
@@ -183,6 +203,7 @@ class ReviewResult(BaseModel):
 
 class ReviewListResponse(BaseModel):
     """复习清单响应"""
+
     pending_count: int
     overdue_count: int
     items: list[ReviewItem]
@@ -190,12 +211,14 @@ class ReviewListResponse(BaseModel):
 
 class FeynmanVerifySubmit(BaseModel):
     """组后验证费曼评分提交"""
+
     schedule_id: UUID
     explanation: str
 
 
 class FeynmanVerifyResponse(BaseModel):
     """组后验证费曼评分响应"""
+
     schedule_id: UUID
     score: int
     passed: bool
@@ -207,17 +230,19 @@ class FeynmanVerifyResponse(BaseModel):
 
 class SessionSnapshot(BaseModel):
     """复习会话快照（前端内存结构原样存储，不做后端校验）"""
+
     batch_id: str
     batch_index: int
     main_queue: list[ReviewItem]
     retry_queue: list[dict] = []
     verify_queue: list[dict] = []
-    current_card: Optional[ReviewItem] = None
+    current_card: ReviewItem | None = None
     stats: dict = {}
 
 
 class BatchCompleteSubmit(BaseModel):
     """复习组完成埋点上报"""
+
     batch_id: str
     total_count: int
     mastered_count: int

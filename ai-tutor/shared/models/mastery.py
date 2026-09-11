@@ -1,10 +1,9 @@
 """数据模型 - Mastery & Learning Stats"""
-from datetime import datetime
-from typing import Optional
-from uuid import UUID, uuid4
 
-from pydantic import BaseModel
-from sqlalchemy import Column, String, DateTime, JSON, Integer, ForeignKey, Numeric, Date
+from datetime import datetime
+from uuid import uuid4
+
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from .user import Base
@@ -12,6 +11,7 @@ from .user import Base
 
 class MasteryRecord(Base):
     """掌握度记录"""
+
     __tablename__ = "mastery_records"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -31,6 +31,7 @@ class MasteryRecord(Base):
 
 class LearningStats(Base):
     """学习统计"""
+
     __tablename__ = "learning_stats"
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)

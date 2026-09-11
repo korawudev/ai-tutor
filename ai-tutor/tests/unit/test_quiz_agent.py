@@ -1,17 +1,28 @@
 """Unit tests for quiz-agent tools."""
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 
 class TestGenerateQuestions:
     @pytest.mark.asyncio
     async def test_generate_success(self, quiz_modules):
         with patch("app.tools.generate_questions.llm_router") as mock_router:
-            mock_router.chat = AsyncMock(return_value={
-                "content": '{"questions": [{"id": "q1", "type": "choice", "question": "What is Python?", "options": {"A": "Lang", "B": "Snake", "C": "Tool", "D": "Car"}, "answer": "A", "topic": "Python", "points": 20}]}'
-            })
-            result = await quiz_modules.generate_questions("Python", "Python is a lang", question_count=1)
+            mock_router.chat = AsyncMock(
+                return_value={
+                    "content": '{"questions": [{"id": "q1", "type": "choice", '
+                    '"question": "What is Python?", '
+                    '"options": {"A": "Lang", "B": "Snake", "C": "Tool", "D": "Car"}, '
+                    '"answer": "A", "topic": "Python", "points": 20}]}',
+                },
+            )
+            result = await quiz_modules.generate_questions(
+                "Python",
+                "Python is a lang",
+                question_count=1,
+            )
             assert len(result) == 1
             assert result[0].id == "q1"
 
@@ -26,9 +37,16 @@ class TestGenerateQuestions:
     @pytest.mark.asyncio
     async def test_generate_truncates_to_count(self, quiz_modules):
         with patch("app.tools.generate_questions.llm_router") as mock_router:
-            mock_router.chat = AsyncMock(return_value={
-                "content": '{"questions": [{"id":"q1","type":"choice","question":"Q1","answer":"A","topic":"t","points":20},{"id":"q2","type":"choice","question":"Q2","answer":"B","topic":"t","points":20},{"id":"q3","type":"choice","question":"Q3","answer":"C","topic":"t","points":20}]}'
-            })
+            mock_router.chat = AsyncMock(
+                return_value={
+                    "content": '{"questions": [{"id":"q1","type":"choice",'
+                    '"question":"Q1","answer":"A","topic":"t","points":20},'
+                    '{"id":"q2","type":"choice",'
+                    '"question":"Q2","answer":"B","topic":"t","points":20},'
+                    '{"id":"q3","type":"choice",'
+                    '"question":"Q3","answer":"C","topic":"t","points":20}]}',
+                },
+            )
             result = await quiz_modules.generate_questions("Python", "ctx", question_count=2)
             assert len(result) == 2
 
@@ -58,9 +76,12 @@ class TestGradeAnswer:
     async def test_grade_short_answer_keyword_match(self, quiz_modules):
         q = {"id": "q1", "type": "short_answer", "answer": "inheritance", "points": 20}
         with patch("app.tools.grade_answer.llm_router") as mock_llm:
-            mock_llm.chat = AsyncMock(return_value={
-                "content": '{"score": 18, "correct": true, "feedback": "Good", "key_points": ["inheritance"]}'
-            })
+            mock_llm.chat = AsyncMock(
+                return_value={
+                    "content": '{"score": 18, "correct": true, '
+                    '"feedback": "Good", "key_points": ["inheritance"]}',
+                },
+            )
             result = await quiz_modules.grade_answer(q, "inheritance is key", "short_answer")
             assert result.correct is True
 
@@ -75,8 +96,14 @@ class TestWrongBook:
     @pytest.mark.asyncio
     async def test_add_wrong_question(self, quiz_modules, mock_db, user_id):
         question = {"id": "q1", "type": "choice", "question": "Q?"}
-        wq = await quiz_modules.add_wrong_question(
-            mock_db, user_id, uuid4(), question, "A", "B", "explanation"
+        await quiz_modules.add_wrong_question(
+            mock_db,
+            user_id,
+            uuid4(),
+            question,
+            "A",
+            "B",
+            "explanation",
         )
         mock_db.add.assert_called_once()
         mock_db.commit.assert_called_once()

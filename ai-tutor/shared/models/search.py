@@ -1,6 +1,3 @@
-from typing import List, Optional
-from uuid import UUID
-
 from pydantic import BaseModel
 
 
@@ -9,12 +6,12 @@ class SearchResult(BaseModel):
     document_id: str
     content: str
     score: float
-    topic: Optional[str] = None
-    metadata: Optional[dict] = None
+    topic: str | None = None
+    metadata: dict | None = None
 
 
 class SearchResponse(BaseModel):
     query: str
-    results: List[SearchResult]
-    rewritten_query: Optional[str] = None
+    results: list[SearchResult]
+    rewritten_query: str | None = None
     total_results: int

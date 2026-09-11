@@ -1,15 +1,19 @@
 """Unit tests for RAG-agent tools."""
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 
 class TestQueryRewriter:
     @pytest.mark.asyncio
     async def test_rewrite_success(self, rag_modules):
         with patch("app.tools.query_rewriter.llm_router") as mock_router:
-            mock_router.chat = AsyncMock(return_value={
-                "content": '{"variants": ["var1", "var2", "var3"]}'
-            })
+            mock_router.chat = AsyncMock(
+                return_value={
+                    "content": '{"variants": ["var1", "var2", "var3"]}',
+                },
+            )
             result = await rag_modules.rewrite_query("test query", num_variants=3)
             assert result.original == "test query"
             assert len(result.variants) == 3
@@ -32,9 +36,11 @@ class TestQueryRewriter:
     @pytest.mark.asyncio
     async def test_rewrite_truncates_variants(self, rag_modules):
         with patch("app.tools.query_rewriter.llm_router") as mock_router:
-            mock_router.chat = AsyncMock(return_value={
-                "content": '{"variants": ["a","b","c","d","e","f"]}'
-            })
+            mock_router.chat = AsyncMock(
+                return_value={
+                    "content": '{"variants": ["a","b","c","d","e","f"]}',
+                },
+            )
             result = await rag_modules.rewrite_query("q", num_variants=2)
             assert len(result.variants) == 2
 

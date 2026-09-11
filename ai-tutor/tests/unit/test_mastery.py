@@ -1,15 +1,15 @@
 """Unit tests for shared.utils.mastery helpers."""
-import pytest
+
 from datetime import date, datetime
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 from shared.utils.mastery import (
+    _merge_mastery,
     local_date_to_utc_window,
+    record_daily_stats,
     resolve_chunk_for_topic,
     upsert_mastery,
-    record_daily_stats,
-    _merge_mastery,
 )
 
 
@@ -82,6 +82,7 @@ class TestUpsertMastery:
 
     async def test_updates_existing_record(self):
         from shared.models import MasteryRecord
+
         db = AsyncMock()
         chunk_id = uuid4()
         existing = MasteryRecord(chunk_id=chunk_id, review_count=0)
@@ -93,6 +94,7 @@ class TestUpsertMastery:
 
     async def test_review_after_quiz_merges_not_overwrites(self):
         from shared.models import MasteryRecord
+
         db = AsyncMock()
         chunk_id = uuid4()
         existing = MasteryRecord(chunk_id=chunk_id, quiz_accuracy=100, review_count=0)
@@ -125,9 +127,16 @@ class TestRecordDailyStats:
 
     async def test_avg_score_weighted(self):
         from shared.models import LearningStats
+
         db = AsyncMock()
         stats = LearningStats(quizzes_taken=1, quiz_avg_score=60)
         db.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=stats))
 
-        await record_daily_stats(db, uuid4(), day=date(2026, 9, 8), quizzes_taken=1, quiz_avg_score=80)
+        await record_daily_stats(
+            db,
+            uuid4(),
+            day=date(2026, 9, 8),
+            quizzes_taken=1,
+            quiz_avg_score=80,
+        )
         assert stats.quiz_avg_score == 70  # (60*1 + 80*1) / 2

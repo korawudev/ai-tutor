@@ -1,7 +1,8 @@
 """Unit tests for knowledge-agent tools."""
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-from uuid import uuid4
 
 
 class TestParseDocument:
@@ -59,8 +60,13 @@ class TestChunkDocument:
         assert len(chunks) == 0
 
     def test_chunk_custom_separators(self, knowledge_modules):
-        text = ("Part1===Part2===Part3===" * 20)
-        chunks = knowledge_modules.chunk_document(text, chunk_size=50, chunk_overlap=10, separators=["==="])
+        text = "Part1===Part2===Part3===" * 20
+        chunks = knowledge_modules.chunk_document(
+            text,
+            chunk_size=50,
+            chunk_overlap=10,
+            separators=["==="],
+        )
         assert len(chunks) >= 2
 
 
@@ -107,24 +113,35 @@ class TestFetchDocument:
     async def test_fetch_trafilatura_success(self, knowledge_modules):
         with patch("app.tools.fetch_document.scrape_with_trafilatura") as mock_traf:
             mock_traf.return_value = MagicMock(success=True, content="content", title="title")
-            result = await knowledge_modules.fetch_document("https://example.com", method="trafilatura")
+            result = await knowledge_modules.fetch_document(
+                "https://example.com",
+                method="trafilatura",
+            )
             assert result.success is True
             assert result.method == "trafilatura"
 
     @pytest.mark.asyncio
     async def test_fetch_auto_fallback(self, knowledge_modules):
-        with patch("app.tools.fetch_document.scrape_with_trafilatura") as mock_traf, \
-             patch("app.tools.fetch_document.scrape_with_jina") as mock_jina:
+        with (
+            patch("app.tools.fetch_document.scrape_with_trafilatura") as mock_traf,
+            patch("app.tools.fetch_document.scrape_with_jina") as mock_jina,
+        ):
             mock_traf.return_value = MagicMock(success=False, error="traf error")
-            mock_jina.return_value = MagicMock(success=True, content="jina content", title="jina title")
+            mock_jina.return_value = MagicMock(
+                success=True,
+                content="jina content",
+                title="jina title",
+            )
             result = await knowledge_modules.fetch_document("https://example.com", method="auto")
             assert result.success is True
             assert result.method == "jina"
 
     @pytest.mark.asyncio
     async def test_fetch_auto_all_fail(self, knowledge_modules):
-        with patch("app.tools.fetch_document.scrape_with_trafilatura") as mock_traf, \
-             patch("app.tools.fetch_document.scrape_with_jina") as mock_jina:
+        with (
+            patch("app.tools.fetch_document.scrape_with_trafilatura") as mock_traf,
+            patch("app.tools.fetch_document.scrape_with_jina") as mock_jina,
+        ):
             mock_traf.return_value = MagicMock(success=False, error="traf err")
             mock_jina.return_value = MagicMock(success=False, error="jina err")
             result = await knowledge_modules.fetch_document("https://example.com", method="auto")

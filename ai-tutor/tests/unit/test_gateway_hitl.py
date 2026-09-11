@@ -1,13 +1,14 @@
 """Unit tests for gateway HITL API."""
-import pytest
+
+from unittest.mock import MagicMock
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock
 
-from fastapi.testclient import TestClient
+import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from gateway.app.api.hitl import router
 from gateway.app.api.auth import get_user_id_dependency
+from gateway.app.api.hitl import router
 from shared.database import get_db
 
 
@@ -39,7 +40,7 @@ class TestResumeRun:
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.post(
             f"/api/threads/{uuid4()}/runs/{uuid4()}/resume",
-            json={"action": "continue", "input": {}}
+            json={"action": "continue", "input": {}},
         )
         assert resp.status_code == 401
 
@@ -51,7 +52,7 @@ class TestResumeRun:
         resp = client.post(
             f"/api/threads/{uuid4()}/runs/{uuid4()}/resume",
             json={"action": "continue", "input": {}},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 404
 
@@ -67,7 +68,7 @@ class TestResumeRun:
         resp = client.post(
             f"/api/threads/{thread_mock.id}/runs/{uuid4()}/resume",
             json={"action": "continue", "input": {}},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 404
 
@@ -88,26 +89,41 @@ class TestResumeRun:
         resp = client.post(
             f"/api/threads/{thread_mock.id}/runs/{run_mock.id}/resume",
             json={"action": "continue", "input": {}},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 400
 
     def test_resume_success(self, client, mock_db, user_id):
-        from shared.models.thread import Thread as ThreadORM, Run as RunORM
         from datetime import datetime
+
+        from shared.models.thread import Run as RunORM
+        from shared.models.thread import Thread as ThreadORM
 
         thread_id = uuid4()
         run_id = uuid4()
         thread_obj = ThreadORM(
-            id=thread_id, user_id=user_id, agent_type="feynman",
-            status="active", state={}, metadata_={},
-            created_at=datetime.utcnow(), updated_at=datetime.utcnow()
+            id=thread_id,
+            user_id=user_id,
+            agent_type="feynman",
+            status="active",
+            state={},
+            metadata_={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
         run_obj = RunORM(
-            id=run_id, thread_id=thread_id, agent_type="feynman",
-            status="waiting_hitl", input={}, created_at=datetime.utcnow(),
-            hitl_required=False, hitl_action=None, hitl_options=None,
-            output=None, completed_at=None, error_message=None
+            id=run_id,
+            thread_id=thread_id,
+            agent_type="feynman",
+            status="waiting_hitl",
+            input={},
+            created_at=datetime.utcnow(),
+            hitl_required=False,
+            hitl_action=None,
+            hitl_options=None,
+            output=None,
+            completed_at=None,
+            error_message=None,
         )
 
         mock_result = MagicMock()
@@ -117,7 +133,7 @@ class TestResumeRun:
         resp = client.post(
             f"/api/threads/{thread_id}/runs/{run_id}/resume",
             json={"action": "continue", "input": {"choice": "yes"}},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 200
         assert run_obj.status == "running"

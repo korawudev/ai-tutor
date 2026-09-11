@@ -1,11 +1,12 @@
 """Knowledge Agent 服务 - 主入口"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from shared.utils.config import settings
 from shared.database import init_db
+
 from .api import documents_router
 
 
@@ -22,7 +23,7 @@ app = FastAPI(
     title="AI Tutor Knowledge Agent",
     description="AI 私教系统 - 知识摄入服务",
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS 配置
@@ -50,5 +51,5 @@ async def root():
     return {
         "service": "AI Tutor Knowledge Agent",
         "version": "0.1.0",
-        "docs": "/docs"
+        "docs": "/docs",
     }

@@ -1,13 +1,14 @@
 """Unit tests for gateway threads API."""
-import pytest
+
+from unittest.mock import MagicMock
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock
 
-from fastapi.testclient import TestClient
+import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from gateway.app.api.threads import router
 from gateway.app.api.auth import get_user_id_dependency
+from gateway.app.api.threads import router
 from shared.database import get_db
 
 
@@ -43,18 +44,20 @@ class TestCreateThread:
     def test_create_thread_success(self, client, mock_db, user_id):
         async def fake_refresh(obj):
             from datetime import datetime
-            if not getattr(obj, 'id', None):
+
+            if not getattr(obj, "id", None):
                 obj.id = uuid4()
-            if not getattr(obj, 'created_at', None):
+            if not getattr(obj, "created_at", None):
                 obj.created_at = datetime.utcnow()
-            if not getattr(obj, 'status', None):
-                obj.status = 'active'
+            if not getattr(obj, "status", None):
+                obj.status = "active"
+
         mock_db.refresh = fake_refresh
 
         resp = client.post(
             "/api/threads",
             json={"agent_type": "feynman"},
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 201
         data = resp.json()
@@ -77,7 +80,7 @@ class TestListThreads:
 
         resp = client.get(
             "/api/threads",
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 200
         assert resp.json() == []
@@ -98,7 +101,7 @@ class TestGetThread:
 
         resp = client.get(
             f"/api/threads/{uuid4()}",
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 404
 
@@ -118,6 +121,6 @@ class TestDeleteThread:
 
         resp = client.delete(
             f"/api/threads/{uuid4()}",
-            headers={"Authorization": "Bearer dummy"}
+            headers={"Authorization": "Bearer dummy"},
         )
         assert resp.status_code == 404

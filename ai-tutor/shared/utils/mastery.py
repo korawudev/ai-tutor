@@ -4,13 +4,15 @@
 - MasteryRecord: 按 (user_id, chunk_id) 唯一，chunk_id 为必填外键，故需先将知识点解析到 chunk。
 - LearningStats: 按 (user_id, date) 唯一，使用增量字段累加当日活动。
 """
-from datetime import datetime, date as date_type, time as time_type, timedelta
+
+from datetime import datetime, timedelta
+from datetime import time as time_type
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, func, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.models import Chunk, Document, MasteryRecord, LearningStats
+from shared.models import Chunk, Document, LearningStats, MasteryRecord
 
 _LOCAL_TZ = ZoneInfo("Asia/Shanghai")
 _UTC = ZoneInfo("UTC")
@@ -19,7 +21,8 @@ _UTC = ZoneInfo("UTC")
 def local_date_to_utc_window(day):
     """将 UTC+8 自然日转换为 UTC 的 [start, end) 窗口(naive UTC)。
 
-    用户活动按 Asia/Shanghai 日期归属；存储的时间戳是 UTC，因此查询趋势时需先把本地日换算成 UTC 区间。
+    用户活动按 Asia/Shanghai 日期归属；存储的时间戳是 UTC，
+    因此查询趋势时需先把本地日换算成 UTC 区间。
     """
     start_local = datetime.combine(day, time_type.min, tzinfo=_LOCAL_TZ)
     end_local = start_local + timedelta(days=1)
@@ -45,7 +48,7 @@ async def resolve_chunk_for_topic(db: AsyncSession, user_id, topic: str):
             Document.deleted_at.is_(None),
             Chunk.content.ilike(f"%{topic.strip()}%"),
         )
-        .limit(1)
+        .limit(1),
     )
     return result.scalar_one_or_none()
 
@@ -53,7 +56,15 @@ async def resolve_chunk_for_topic(db: AsyncSession, user_id, topic: str):
 _SOURCE_WEIGHTS = {"quiz": 0.5, "review": 0.35, "feynman": 0.15}
 
 
-def _merge_mastery(quiz_accuracy, feynman_score, review_score, *, has_quiz=False, has_feynman=False, has_review=False):
+def _merge_mastery(
+    quiz_accuracy,
+    feynman_score,
+    review_score,
+    *,
+    has_quiz=False,
+    has_feynman=False,
+    has_review=False,
+):
     """加权合并三路信号的掌握度分值（按活跃来源归一化权重）。
 
     quiz/review 为测验性、权重高；feynman 为讲授性、权重略低。仅计入至少产生过
@@ -73,7 +84,7 @@ def _merge_mastery(quiz_accuracy, feynman_score, review_score, *, has_quiz=False
         weights.append(_SOURCE_WEIGHTS["feynman"])
     if not components:
         return 0.0
-    return sum(c * w for c, w in zip(components, weights)) / sum(weights)
+    return sum(c * w for c, w in zip(components, weights, strict=False)) / sum(weights)
 
 
 async def upsert_mastery(
@@ -102,7 +113,7 @@ async def upsert_mastery(
         select(MasteryRecord).where(
             MasteryRecord.user_id == user_id,
             MasteryRecord.chunk_id == chunk_id,
-        )
+        ),
     )
     record = result.scalar_one_or_none()
 
@@ -122,14 +133,22 @@ async def upsert_mastery(
         record.last_review_at = now
 
     record.mastery_score = round(
-        max(0.0, min(100.0, _merge_mastery(
-            record.quiz_accuracy,
-            record.feynman_score,
-            record.review_score,
-            has_quiz=record.last_quiz_at is not None,
-            has_feynman=record.last_feynman_at is not None,
-            has_review=record.last_review_at is not None,
-        ))), 2)
+        max(
+            0.0,
+            min(
+                100.0,
+                _merge_mastery(
+                    record.quiz_accuracy,
+                    record.feynman_score,
+                    record.review_score,
+                    has_quiz=record.last_quiz_at is not None,
+                    has_feynman=record.last_feynman_at is not None,
+                    has_review=record.last_review_at is not None,
+                ),
+            ),
+        ),
+        2,
+    )
 
     return True
 
@@ -141,15 +160,21 @@ async def record_daily_stats(db: AsyncSession, user_id, day=None, **increments):
         select(LearningStats).where(
             LearningStats.user_id == user_id,
             LearningStats.date == day,
-        )
+        ),
     )
     stats = result.scalar_one_or_none()
     if stats is None:
         stats = LearningStats(user_id=user_id, date=day)
         db.add(stats)
 
-    counter_fields = ("documents_read", "quizzes_taken", "feynman_sessions",
-                      "reviews_completed", "new_concepts_learned", "total_time_seconds")
+    counter_fields = (
+        "documents_read",
+        "quizzes_taken",
+        "feynman_sessions",
+        "reviews_completed",
+        "new_concepts_learned",
+        "total_time_seconds",
+    )
     for field, value in increments.items():
         if value is None:
             continue
@@ -161,4 +186,8 @@ async def record_daily_stats(db: AsyncSession, user_id, day=None, **increments):
             old_count = (getattr(stats, count_field) or 0) - inc
             old_avg = float(getattr(stats, field) or 0.0)
             new_count = old_count + inc
-            setattr(stats, field, round((old_avg * old_count + float(value) * inc) / max(new_count, 1), 2))
+            setattr(
+                stats,
+                field,
+                round((old_avg * old_count + float(value) * inc) / max(new_count, 1), 2),
+            )
