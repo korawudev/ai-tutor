@@ -83,6 +83,8 @@ cd web-app && npm run dev        # vite dev server
 cd web-app && npx tsc --noEmit   # typecheck
 # infra
 docker compose up -d postgres redis
+# backend hot reload (dev overlay: uvicorn --reload + source mounts)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 # full deploy
 make build && make deploy
 ```

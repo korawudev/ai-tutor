@@ -1,0 +1,58 @@
+# 开发模式覆盖文件：后端热重载（uvicorn --reload）
+# 用法：
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+# 说明：与生产 compose 合并运行；每个 agent 挂载源码目录 + uvicorn --reload，
+# 宿主机编辑 .py 文件后容器自动重启对应服务。
+#
+# 挂载路径必须与各 Dockerfile 的 COPY 目标一致：
+#   - gateway 额外将 review-agent 复制为 /app/review_agent（代码 import review_agent.*）
+#   - 其余 agent 保持连字符目录名（/app/<agent-name>/）
+# --reload-dir 只监听源码目录，避免 ./storage 数据写入触发无谓重启。
+
+services:
+  # ========== Agent 服务（热重载） ==========
+
+  gateway:
+    command: uvicorn gateway.app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/gateway --reload-dir /app/shared --reload-dir /app/review_agent
+    volumes:
+      - ./shared:/app/shared
+      - ./gateway:/app/gateway
+      # gateway 复用 review-agent 调度逻辑（schedule_manager/spaced_repetition）
+      - ./review-agent:/app/review_agent
+
+  knowledge-agent:
+    command: uvicorn knowledge-agent.app.main:app --host 0.0.0.0 --port 8001 --reload --reload-dir /app/knowledge-agent --reload-dir /app/shared
+    volumes:
+      - ./shared:/app/shared
+      - ./knowledge-agent:/app/knowledge-agent
+
+  rag-agent:
+    command: uvicorn rag-agent.app.main:app --host 0.0.0.0 --port 8002 --reload --reload-dir /app/rag-agent --reload-dir /app/shared
+    volumes:
+      - ./shared:/app/shared
+      - ./rag-agent:/app/rag-agent
+
+  feynman-agent:
+    command: uvicorn feynman-agent.app.main:app --host 0.0.0.0 --port 8003 --reload --reload-dir /app/feynman-agent --reload-dir /app/shared
+    volumes:
+      - ./shared:/app/shared
+      - ./feynman-agent:/app/feynman-agent
+
+  quiz-agent:
+    command: uvicorn quiz-agent.app.main:app --host 0.0.0.0 --port 8004 --reload --reload-dir /app/quiz-agent --reload-dir /app/shared
+    volumes:
+      - ./shared:/app/shared
+      - ./quiz-agent:/app/quiz-agent
+
+  review-agent:
+    command: uvicorn review-agent.app.main:app --host 0.0.0.0 --port 8005 --reload --reload-dir /app/review-agent --reload-dir /app/shared
+    volumes:
+      - ./shared:/app/shared
+      - ./review-agent:/app/review-agent
+
+  progress-agent:
+    command: uvicorn progress-agent.app.main:app --host 0.0.0.0 --port 8006 --reload --reload-dir /app/progress-agent --reload-dir /app/shared
+    volumes:
+      - ./shared:/app/shared
+      - ./progress-agent:/app/progress-agent
