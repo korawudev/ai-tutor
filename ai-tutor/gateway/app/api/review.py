@@ -31,12 +31,14 @@ from shared.models import (
     VerificationFailedSubmit,
     VerificationLog,
 )
+from shared.utils.logging import get_logger
 from shared.utils.mastery import record_daily_stats, upsert_mastery
 
 from ..services import llm_client
 from .auth import get_user_id_dependency
 
 router = APIRouter(prefix="/api/review", tags=["review"])
+log = get_logger("gateway.review")
 
 MIN_RESPONSE_TIME_MS = 500
 VERIFY_PASS_SCORE = 80

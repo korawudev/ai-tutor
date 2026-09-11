@@ -49,6 +49,7 @@ dependencies = [
     
     # Observability
     "langfuse>=2.50.0",
+    "structlog>=24.0.0",
 ]
 
 [project.optional-dependencies]

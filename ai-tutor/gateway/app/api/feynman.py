@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
 from shared.models import ReviewSchedule, Run, Thread
+from shared.utils.logging import get_logger
 from shared.utils.mastery import record_daily_stats, upsert_mastery
 from shared.utils.schedule import compute_next_review_window
 
@@ -17,6 +18,7 @@ from ..services import llm_client
 from .auth import get_user_id_dependency
 
 router = APIRouter(prefix="/api/feynman", tags=["feynman"])
+log = get_logger("gateway.feynman")
 
 EVALUATE_PROMPT = """\
 你是一位费曼学习法评估专家。请根据用户与导师的对话历史，评估用户对概念的理解程度。
