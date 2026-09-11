@@ -42,6 +42,12 @@ def _patch_mastery_helpers():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _siliconflow_api_key(monkeypatch):
+    """chat_json 调用前必须存在 SILICONFLOW_API_KEY，否则 RuntimeError"""
+    monkeypatch.setenv("SILICONFLOW_API_KEY", "test-key")
+
+
 def _make_httpx_response(status_code=200, json_data=None):
     resp = MagicMock()
     resp.status_code = status_code
@@ -51,12 +57,12 @@ def _make_httpx_response(status_code=200, json_data=None):
 
 
 def _make_httpx_client(mock_resp):
-    """Create a MagicMock httpx.AsyncClient with proper async context manager."""
+    """Create a MagicMock httpx.Client with proper sync context manager."""
     instance = MagicMock()
-    instance.__aenter__ = AsyncMock(return_value=instance)
-    instance.__aexit__ = AsyncMock(return_value=False)
-    instance.post = AsyncMock(return_value=mock_resp)
-    instance.get = AsyncMock(return_value=mock_resp)
+    instance.__enter__ = MagicMock(return_value=instance)
+    instance.__exit__ = MagicMock(return_value=False)
+    instance.post = MagicMock(return_value=mock_resp)
+    instance.get = MagicMock(return_value=mock_resp)
     return instance
 
 
@@ -71,7 +77,7 @@ class TestFeynmanEvaluate:
         resp = client.post("/api/feynman/evaluate", params={"thread_id": str(uuid4())})
         assert resp.status_code == 401
 
-    @patch("httpx.AsyncClient")
+    @patch("gateway.app.services.llm_client.httpx.Client")
     def test_evaluate_no_conversation(self, mock_client_cls, client, mock_db):
         """No runs in thread → 400."""
         mock_result = MagicMock()
@@ -85,7 +91,7 @@ class TestFeynmanEvaluate:
         )
         assert resp.status_code == 400
 
-    @patch("httpx.AsyncClient")
+    @patch("gateway.app.services.llm_client.httpx.Client")
     def test_evaluate_success(self, mock_client_cls, client, mock_db, user_id):
         """Successful evaluation returns score + feedback."""
         from datetime import datetime
@@ -151,7 +157,7 @@ class TestFeynmanEvaluate:
         assert "strengths" in data
         assert "weaknesses" in data
 
-    @patch("httpx.AsyncClient")
+    @patch("gateway.app.services.llm_client.httpx.Client")
     def test_evaluate_llm_error_returns_fallback(self, mock_client_cls, client, mock_db, user_id):
         """LLM error returns fallback evaluation."""
         from datetime import datetime

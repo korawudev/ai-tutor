@@ -69,7 +69,9 @@ class TestSubmitReviewResult:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         db.execute.return_value = mock_result
-        result = await review_schedule_modules.submit_review_result(db, uuid4(), uuid4(), "easy")
+        result = await review_schedule_modules.submit_normal_review(
+            db, uuid4(), uuid4(), "mastered"
+        )
         assert result is None
 
     @pytest.mark.asyncio
@@ -86,6 +88,8 @@ class TestSubmitReviewResult:
             ease_factor=2.5,
             review_count=0,
             mastery_score=50.0,
+            correct_streak=0,
+            is_mastered=0,
             status="active",
             created_at=now,
         )
@@ -93,14 +97,26 @@ class TestSubmitReviewResult:
         mock_result.scalar_one_or_none.return_value = schedule
         db.execute.return_value = mock_result
         db.refresh = AsyncMock()
-        result = await review_schedule_modules.submit_review_result(
+        result = await review_schedule_modules.submit_normal_review(
             db,
             schedule.id,
             schedule.user_id,
-            "easy",
+            "mastered",
+            response_time_ms=1000,
         )
         assert result is not None
-        assert result.review_count == 1
+        assert result["correct_streak"] == 1
+        assert result["ease_factor"] == 2.65
+        assert result["is_mastered"] is False
+        assert result["need_session_retry"] is False
+        assert result["retry_reason"] is None
+        assert result["mastery_change"] == {
+            "old": 50.0,
+            "new": 65.0,
+            "delta": 15.0,
+        }
+        assert schedule.review_count == 1
+        assert schedule.correct_streak == 1
         db.add.assert_called_once()
         db.commit.assert_called()
 

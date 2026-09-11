@@ -31,13 +31,12 @@ async def submit_normal_review(
     Returns:
         包含更新后状态和 need_session_retry 标记的字典
     """
-    # 解析答案
+    # 解析答案（兼容旧 5 级命名：easy→mastered, good→mastered, hard→vague, forgot→forgotten）
+    mapping = {"easy": "mastered", "good": "mastered", "hard": "vague", "forgot": "forgotten"}
     try:
-        NormalReviewAnswer(answer)
+        parsed_answer = NormalReviewAnswer(answer)
     except ValueError:
-        # 兼容旧版本
-        mapping = {"easy": "mastered", "good": "mastered", "hard": "vague", "forgot": "forgotten"}
-        NormalReviewAnswer(mapping.get(answer, "forgotten"))
+        parsed_answer = NormalReviewAnswer(mapping.get(answer, "forgotten"))
 
     # 获取调度
     query = select(ReviewSchedule).where(
@@ -52,7 +51,7 @@ async def submit_normal_review(
 
     # 计算新状态
     new_state = calculate_next_review(
-        NormalReviewAnswer(answer),
+        parsed_answer,
         float(schedule.interval_days),
         float(schedule.ease_factor),
         float(schedule.mastery_score),

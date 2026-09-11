@@ -6,6 +6,9 @@ help: ## Show this help
 test: ## Run unit tests
 	.venv/bin/python -m pytest tests/unit/ -v --tb=short
 
+test-cov: ## Run unit tests with coverage gate (fails below 80%)
+	.venv/bin/python -m pytest tests/unit/ --cov --cov-report=term-missing -q
+
 test-all: ## Run all tests (unit + integration)
 	.venv/bin/python -m pytest tests/ -v --tb=short
 
@@ -13,6 +16,9 @@ lint: ## Type-check frontend + backend syntax check
 	cd web-app && npx tsc --noEmit
 	.venv/bin/python -m py_compile gateway/app/api/runs.py
 	.venv/bin/python -m py_compile gateway/app/api/feynman.py
+
+validate: ## Validate migration chain + model metadata parity
+	PYTHONPATH=. .venv/bin/python scripts/validate_migrations.py
 
 build: ## Build frontend + rebuild gateway container
 	cd web-app && npm run build

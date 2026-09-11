@@ -397,7 +397,15 @@ class TestGatewayReviewSubmitSuccess:
         app.include_router(router)
         return TestClient(app, raise_server_exceptions=False), mock_db, user_id, valid_token
 
-    def _make_schedule(self, user_id, interval=2.0, ef=2.5, mastery=50.0, status="active"):
+    def _make_schedule(
+        self,
+        user_id,
+        interval=2.0,
+        ef=2.5,
+        mastery=50.0,
+        status="active",
+        correct_streak=0,
+    ):
         s = MagicMock()
         s.id = uuid4()
         s.user_id = user_id
@@ -411,11 +419,13 @@ class TestGatewayReviewSubmitSuccess:
         s.mastery_score = mastery
         s.status = status
         s.review_count = 3
+        s.correct_streak = correct_streak
+        s.is_mastered = 0
         s.next_review = datetime.utcnow() - timedelta(days=1)
         s.last_reviewed_at = datetime.utcnow() - timedelta(days=3)
         return s
 
-    def test_submit_review_good(self, client_and_deps):
+    def test_submit_review_mastered(self, client_and_deps):
         client, mock_db, user_id, valid_token = client_and_deps
         schedule = self._make_schedule(user_id)
 
@@ -424,17 +434,46 @@ class TestGatewayReviewSubmitSuccess:
         mock_db.execute.return_value = mock_result
 
         resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(schedule.id), "result": "good"},
+            "/api/review/normal",
+            json={
+                "schedule_id": str(schedule.id),
+                "answer": "mastered",
+                "response_time_ms": 1000,
+            },
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["old_interval"] == 2.0
-        assert data["new_interval"] == 5.0  # 2.0 * 2.5
-        assert data["mastery_score"] == 60.0  # 50 + 10
+        assert data["ease_factor"] == 2.65  # 2.5 + 0.15
+        assert data["correct_streak"] == 1
+        assert data["is_mastered"] is False
+        assert data["mastery_change"] == {"old": 50.0, "new": 65.0, "delta": 15.0}
 
-    def test_submit_review_easy(self, client_and_deps):
+    def test_submit_review_mastered_interval(self, client_and_deps):
+        """连续第 3 次答对 → 间隔 = current * ef，毕业 is_mastered=True"""
+        client, mock_db, user_id, valid_token = client_and_deps
+        schedule = self._make_schedule(user_id, correct_streak=2)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = schedule
+        mock_db.execute.return_value = mock_result
+
+        resp = client.post(
+            "/api/review/normal",
+            json={
+                "schedule_id": str(schedule.id),
+                "answer": "mastered",
+                "response_time_ms": 1000,
+            },
+            headers={"Authorization": f"Bearer {valid_token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["correct_streak"] == 3
+        assert data["is_mastered"] is True
+        assert data["mastery_change"] == {"old": 50.0, "new": 65.0, "delta": 15.0}
+
+    def test_submit_review_vague(self, client_and_deps):
         client, mock_db, user_id, valid_token = client_and_deps
         schedule = self._make_schedule(user_id)
 
@@ -443,15 +482,23 @@ class TestGatewayReviewSubmitSuccess:
         mock_db.execute.return_value = mock_result
 
         resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(schedule.id), "result": "easy"},
+            "/api/review/normal",
+            json={
+                "schedule_id": str(schedule.id),
+                "answer": "vague",
+                "response_time_ms": 1000,
+            },
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["mastery_score"] == 65.0  # 50 + 15
+        assert data["ease_factor"] == 2.4  # 2.5 - 0.1
+        assert data["correct_streak"] == 0
+        assert data["need_session_retry"] is True
+        assert data["retry_reason"] == "vague"
+        assert data["mastery_change"] == {"old": 50.0, "new": 45.0, "delta": -5.0}
 
-    def test_submit_review_hard(self, client_and_deps):
+    def test_submit_review_forgotten(self, client_and_deps):
         client, mock_db, user_id, valid_token = client_and_deps
         schedule = self._make_schedule(user_id)
 
@@ -460,34 +507,23 @@ class TestGatewayReviewSubmitSuccess:
         mock_db.execute.return_value = mock_result
 
         resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(schedule.id), "result": "hard"},
+            "/api/review/normal",
+            json={
+                "schedule_id": str(schedule.id),
+                "answer": "forgotten",
+                "response_time_ms": 1000,
+            },
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["mastery_score"] == 45.0  # 50 - 5
-
-    def test_submit_review_forgot(self, client_and_deps):
-        client, mock_db, user_id, valid_token = client_and_deps
-        schedule = self._make_schedule(user_id)
-
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = schedule
-        mock_db.execute.return_value = mock_result
-
-        resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(schedule.id), "result": "forgot"},
-            headers={"Authorization": f"Bearer {valid_token}"},
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["new_interval"] == 1.0
-        assert data["mastery_score"] == 35.0  # 50 - 15
+        assert data["correct_streak"] == 0
+        assert data["need_session_retry"] is True
+        assert data["retry_reason"] == "forgotten"
+        assert data["mastery_change"] == {"old": 50.0, "new": 35.0, "delta": -15.0}
 
     def test_submit_review_mastery_cap(self, client_and_deps):
-        """Mastery should cap at 100 → mastered status."""
+        """掌握度封顶于 100；毕业与否只看连续答对次数"""
         client, mock_db, user_id, valid_token = client_and_deps
         schedule = self._make_schedule(user_id, mastery=85.0)
 
@@ -496,14 +532,19 @@ class TestGatewayReviewSubmitSuccess:
         mock_db.execute.return_value = mock_result
 
         resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(schedule.id), "result": "easy"},
+            "/api/review/normal",
+            json={
+                "schedule_id": str(schedule.id),
+                "answer": "mastered",
+                "response_time_ms": 1000,
+            },
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] == "mastered"
-        assert data["mastery_score"] == 100.0  # 85 + 15 = 100 ≥ 90 → mastered
+        assert data["mastery_change"] == {"old": 85.0, "new": 100.0, "delta": 15.0}
+        assert data["correct_streak"] == 1  # 仅 1 次，未毕业
+        assert data["is_mastered"] is False
 
     def test_review_stats_with_data(self, client_and_deps):
         client, mock_db, user_id, valid_token = client_and_deps
@@ -514,9 +555,15 @@ class TestGatewayReviewSubmitSuccess:
         s3 = self._make_schedule(user_id, status="active")
         s3.next_review = datetime.utcnow() + timedelta(days=5)
 
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [s1, s2, s3]
-        mock_db.execute.return_value = mock_result
+        total_result = MagicMock()
+        total_result.scalars.return_value.all.return_value = [s1, s3]
+        pending_result = MagicMock()
+        pending_result.scalars.return_value.all.return_value = [s1]
+        mastered_result = MagicMock()
+        mastered_result.scalars.return_value.all.return_value = [s2]
+        mock_db.execute = AsyncMock(
+            side_effect=[total_result, pending_result, mastered_result],
+        )
 
         resp = client.get(
             "/api/review/stats",
@@ -524,9 +571,10 @@ class TestGatewayReviewSubmitSuccess:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["total"] == 3
+        assert data["total"] == 2
         assert data["mastered"] == 1
-        assert data["pending"] == 1  # s1 is overdue
+        assert data["pending"] == 1
+        assert data["active"] == 1
 
     def test_pending_with_data(self, client_and_deps):
         client, mock_db, user_id, valid_token = client_and_deps
@@ -576,14 +624,19 @@ class TestGatewayFeynmanSuccess:
         app.include_router(router)
         return TestClient(app, raise_server_exceptions=False), mock_db, user_id, valid_token
 
+    @pytest.fixture(autouse=True)
+    def _siliconflow_api_key(self, monkeypatch):
+        """chat_json 调用前必须存在 SILICONFLOW_API_KEY，否则 RuntimeError"""
+        monkeypatch.setenv("SILICONFLOW_API_KEY", "test-key")
+
     def _mock_httpx(self, status_code=200, json_data=None):
         resp = MagicMock()
         resp.status_code = status_code
         resp.json.return_value = json_data if json_data is not None else {}
         instance = MagicMock()
-        instance.__aenter__ = AsyncMock(return_value=instance)
-        instance.__aexit__ = AsyncMock(return_value=False)
-        instance.post = AsyncMock(return_value=resp)
+        instance.__enter__ = MagicMock(return_value=instance)
+        instance.__exit__ = MagicMock(return_value=False)
+        instance.post = MagicMock(return_value=resp)
         return instance
 
     def test_explain_success(self, client_and_deps):
@@ -637,7 +690,7 @@ class TestGatewayFeynmanSuccess:
         runs_result.scalars.return_value.all.return_value = [run_obj]
         mock_db.execute = AsyncMock(side_effect=[thread_result, runs_result])
 
-        with patch("gateway.app.api.feynman.httpx.AsyncClient", return_value=mock_client):
+        with patch("gateway.app.services.llm_client.httpx.Client", return_value=mock_client):
             resp = client.post(
                 "/api/feynman/evaluate",
                 params={"thread_id": str(uuid4())},
@@ -717,7 +770,7 @@ class TestGatewayFeynmanSuccess:
         runs_result.scalars.return_value.all.return_value = [run_obj]
         mock_db.execute = AsyncMock(side_effect=[thread_result, runs_result])
 
-        with patch("gateway.app.api.feynman.httpx.AsyncClient", return_value=mock_client):
+        with patch("gateway.app.services.llm_client.httpx.Client", return_value=mock_client):
             resp = client.post(
                 "/api/feynman/evaluate",
                 params={"thread_id": str(uuid4())},

@@ -132,13 +132,13 @@ def review_schedule_modules():
         create_review_schedule,
         get_pending_reviews,
         get_review_stats,
-        submit_review_result,
+        submit_normal_review,
     )
 
     return types.SimpleNamespace(
         get_pending_reviews=get_pending_reviews,
         create_review_schedule=create_review_schedule,
-        submit_review_result=submit_review_result,
+        submit_normal_review=submit_normal_review,
         get_review_stats=get_review_stats,
     )
 

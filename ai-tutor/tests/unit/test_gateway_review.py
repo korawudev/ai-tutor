@@ -77,6 +77,8 @@ class TestReviewPending:
             next_review=datetime.utcnow(),
             interval_days=1.0,
             review_count=0,
+            correct_streak=0,
+            is_mastered=0,
             status="active",
             source="quiz",
             reason="wrong",
@@ -103,13 +105,27 @@ class TestReviewSubmit:
         app.include_router(router)
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.post(
-            "/api/review/submit",
+            "/api/review/normal",
             json={
                 "schedule_id": str(uuid4()),
-                "result": "good",
+                "answer": "mastered",
+                "response_time_ms": 1000,
             },
         )
         assert resp.status_code == 401
+
+    def test_submit_too_fast(self, client, mock_db, valid_token):
+        """<500ms response → 400 请仔细思考后再作答"""
+        resp = client.post(
+            "/api/review/normal",
+            json={
+                "schedule_id": str(uuid4()),
+                "answer": "mastered",
+                "response_time_ms": 100,
+            },
+            headers={"Authorization": f"Bearer {valid_token}"},
+        )
+        assert resp.status_code == 400
 
     def test_submit_not_found(self, client, mock_db, valid_token):
         mock_result = MagicMock()
@@ -117,8 +133,12 @@ class TestReviewSubmit:
         mock_db.execute.return_value = mock_result
 
         resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(uuid4()), "result": "good"},
+            "/api/review/normal",
+            json={
+                "schedule_id": str(uuid4()),
+                "answer": "mastered",
+                "response_time_ms": 1000,
+            },
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 404
@@ -138,6 +158,8 @@ class TestReviewSubmit:
             interval_days=1.0,
             ease_factor=2.5,
             review_count=0,
+            correct_streak=0,
+            is_mastered=0,
             status="active",
             source="quiz",
             reason="wrong",
@@ -150,20 +172,25 @@ class TestReviewSubmit:
 
         before = datetime.utcnow()
         resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(s.id), "result": "good"},
+            "/api/review/normal",
+            json={
+                "schedule_id": str(s.id),
+                "answer": "mastered",
+                "response_time_ms": 1000,
+            },
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert s.next_review > before
         assert s.review_count == 1
-        assert s.interval_days == 2.5  # 1.0 * ef(2.5) * 1.0
         assert len(added) == 1  # review log
         body = resp.json()
-        assert body["status"] == "active"
+        assert body["correct_streak"] == 1
+        assert body["is_mastered"] is False
+        assert body["ease_factor"] == 2.65
 
     def test_submit_forgot_resets_interval(self, client, mock_db, valid_token, user_id):
-        """记错了(forgot) 等价于直接回答忘记: 间隔重置为 1 天"""
+        """记错了(forgotten) 间隔重置为 1 天，掌握度降 15"""
         from shared.models import ReviewSchedule
 
         s = ReviewSchedule(
@@ -177,6 +204,8 @@ class TestReviewSubmit:
             interval_days=5.0,
             ease_factor=2.5,
             review_count=1,
+            correct_streak=0,
+            is_mastered=0,
             status="active",
             source="quiz",
             reason="wrong",
@@ -186,18 +215,21 @@ class TestReviewSubmit:
         mock_db.execute.return_value = mock_result
         mock_db.add = MagicMock()
 
-        before = datetime.utcnow()
         resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(s.id), "result": "forgot"},
+            "/api/review/normal",
+            json={
+                "schedule_id": str(s.id),
+                "answer": "forgotten",
+                "response_time_ms": 1000,
+            },
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
         assert float(s.interval_days) == 1.0
-        assert s.next_review > before
         assert float(s.mastery_score) == 35.0  # 50 - 15
         body = resp.json()
-        assert body["status"] == "active"
+        assert body["need_session_retry"] is True
+        assert body["retry_reason"] == "forgotten"
 
     def test_submit_with_decimal_values_ok(self, client, mock_db, valid_token, user_id):
         """DB 返回的 Numeric 列是 Decimal，记录日志时必须能兼容(线上 bug 回归)"""
@@ -216,6 +248,8 @@ class TestReviewSubmit:
             interval_days=Decimal("1.00"),
             ease_factor=Decimal("2.50"),
             review_count=0,
+            correct_streak=0,
+            is_mastered=0,
             status="active",
             source="quiz",
             reason="wrong",
@@ -227,12 +261,16 @@ class TestReviewSubmit:
         mock_db.add.side_effect = lambda obj: added.append(obj)
 
         resp = client.post(
-            "/api/review/submit",
-            json={"schedule_id": str(s.id), "result": "good"},
+            "/api/review/normal",
+            json={
+                "schedule_id": str(s.id),
+                "answer": "mastered",
+                "response_time_ms": 1000,
+            },
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 200
-        assert float(s.interval_days) == 2.5
+        assert float(s.interval_days) == 1.0
         assert len(added) == 1  # review log 纪录成功
 
 

@@ -1,6 +1,7 @@
 """Shared test fixtures for AI Tutor test suite."""
 
 import sys
+import types
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -10,6 +11,15 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "shared"))
+
+# Mirror the gateway Dockerfile, which copies `review-agent/` to `review_agent/`
+# so `gateway/app/api/review.py` can `from review_agent.app.tools.schedule_manager import ...`.
+# Locally the checkout keeps the hyphenated dir name, so expose the same package
+# alias before any gateway module is imported (collection-time).
+if "review_agent" not in sys.modules:
+    _review_agent_pkg = types.ModuleType("review_agent")
+    _review_agent_pkg.__path__ = [str(ROOT / "review-agent")]
+    sys.modules["review_agent"] = _review_agent_pkg
 
 
 @pytest.fixture
